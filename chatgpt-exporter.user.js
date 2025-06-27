@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name         ChatGPT Exporter v1.0.0
+// @name         ChatGPT Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
 // @version      1.0.0
-// @description  Export ChatGPT thread with Markdown formatting, TOC, YAML, local time, Turndown integration, and chat count (chatgpt assisted code)
+// @description  Export your ChatGPT conversation into a properly and elegently formatted Markdown, with TOC, YAML headers, back to top links and more.
 // @author       Mic Mejia
 // @homepage     https://github.com/micmejia
-// @copyright    MIT License
+// @license      MIT License
 // @match        https://chat.openai.com/*
 // @match        https://chatgpt.com/*
 // @grant        none

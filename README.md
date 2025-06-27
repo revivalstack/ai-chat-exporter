@@ -1,4 +1,4 @@
-# ChatGPT Exporter v1.0.0
+# ChatGPT Exporter by RevivalStack (v1.0.0)
 
 **ChatGPT Exporter** is a Tampermonkey user script that allows you to export ChatGPT conversations with Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
 
@@ -20,7 +20,11 @@
    - [Firefox](https://addons.mozilla.org/firefox/addon/tampermonkey)
    - [Edge](https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd)
 
-2. Create a new script in Tampermonkey and paste the code from this repository.
+2. Create a new script in Tampermonkey and paste the code from this repository, or click below to install.
+
+   - [install Tapermonkey script](https://raw.githubusercontent.com/revivalstack/chatgpt-exporter/refs/heads/main/chatgpt-exporter.user.js)
+   - [install GreasyFork script](https://greasyfork.org/en/scripts/540909-chatgpt-exporter-by-revivalstack)
+
 3. Save the script and open ChatGPT or a compatible ChatGPT-like page.
 4. You will see a floating "⬇ Export Chat" button at the bottom-right of the page.
 
@@ -39,7 +43,7 @@ The exported file will include:
 2. **Table of Contents** linking to each user question and GPT response pair.
 3. **Markdown Content** of the conversation, including formatted messages, code blocks, and links.
 
-Example:
+[Sample Export](sample.md):
 
 ```yaml
 ---
