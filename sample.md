@@ -1,8 +1,9 @@
 ---
-thread_name: "Chat with GPT-4"
-message_count: 5
-exporter_version: "1.0.0"
+thread_name: "Chat with ChatGPT"
+message_count: 3
+exporter_version: "2.0.0"
 exported_at: "2025-06-27T14-45-00-UTC+0300"
+thread_url: "[https://chatgpt.com/c/](https://chatgpt.com/c/)..."
 ---
 
 # Chat with GPT-4
@@ -44,7 +45,5 @@ GPT-4 can answer a variety of questions, though it may not always provide perfec
 ###### ChatGPT said:
 
 You're currently chatting with **ChatGPT using GPT-4o**, which is the latest and most advanced model as of June 2025.
-
-Here’s a breakdown:
 
 ...
