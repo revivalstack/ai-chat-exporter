@@ -1,3 +1,13 @@
+## 2.0.0 (2025-06-28)
+
+### BREAKING CHANGE
+
+- This exporter now supports google gemini, json output format, and improved overall code!
+
+### Feat
+
+- !enhanced exporter to support google gemini in addition to chatgpt
+
 ## 1.0.0 (2025-06-27)
 
 ### BREAKING CHANGE
