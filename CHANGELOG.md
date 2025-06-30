@@ -1,3 +1,9 @@
+## 2.1.0 (2025-06-30)
+
+### Feat
+
+- add an alert for gemini users to scroll back messages to ensure complete export
+
 ## 2.0.0 (2025-06-28)
 
 ### BREAKING CHANGE
