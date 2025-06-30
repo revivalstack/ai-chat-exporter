@@ -3,8 +3,9 @@
 .vscode-test/
 .history/
 
-# Ignore .archive folder
+# Ignore .archive and test-exports folders
 .archive/
+test-exports/
 
 # Ignore system files (macOS, Windows, Linux)
 .DS_Store

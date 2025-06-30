@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT / Gemini AI Chat Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
-// @version      2.1.0
+// @version      2.1.1
 // @description  Export your ChatGPT or Gemini conversation into a properly and elegantly formatted Markdown or JSON.
 // @author       Mic Mejia (Refactored by Google Gemini)
 // @homepage     https://github.com/micmejia
@@ -16,7 +16,7 @@
   "use strict";
 
   // --- Global Constants ---
-  const EXPORTER_VERSION = "2.1.0";
+  const EXPORTER_VERSION = "2.1.1";
   const EXPORT_CONTAINER_ID = "export-controls-container";
   const DOM_READY_TIMEOUT = 1000;
   const EXPORT_BUTTON_TITLE_PREFIX = `AI Chat Exporter v${EXPORTER_VERSION}`;
@@ -242,7 +242,20 @@
           const codeElement = node.querySelector("code");
           const codeText = codeElement ? codeElement.textContent.trim() : "";
 
-          return `\n\`\`\`${lang}\n${codeText}\n\`\`\`\n`;
+          // Ensure a blank line before the code section's language text if its parent is a list item
+          let prefix = "\n"; // Default prefix for code blocks
+          let prevSibling = node.previousElementSibling;
+
+          // Check for a specific pattern: <p> immediately followed by <pre> inside an <li>
+          if (prevSibling && prevSibling.nodeName === "P") {
+            let parentLi = prevSibling.closest("li");
+            if (parentLi && parentLi.contains(node)) {
+              // Ensure the <pre> is also a descendant of the same <li>
+              prefix = "\n\n"; // Add an extra newline for better separation
+            }
+          }
+
+          return `${prefix}\`\`\`${lang}\n${codeText}\n\`\`\`\n`;
         },
       });
 
@@ -805,6 +818,17 @@
           turndownServiceInstance.addRule("remove-img", {
             filter: "img",
             replacement: () => "", // Remove image tags
+          });
+        }
+
+        // Gemini specific rule to remove language labels from being processed as content
+        if (GEMINI_HOSTNAMES.some((host) => currentHost.includes(host))) {
+          turndownServiceInstance.addRule("geminiCodeLanguageLabel", {
+            filter: (node) =>
+              node.nodeName === "SPAN" &&
+              node.closest(".code-block-decoration") &&
+              node.textContent.trim().length > 0, // Ensure it's not an an empty span
+            replacement: () => "", // Replace with empty string
           });
         }
 
