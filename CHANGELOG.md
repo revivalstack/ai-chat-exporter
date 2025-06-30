@@ -1,3 +1,9 @@
+## 2.1.1 (2025-06-30)
+
+### Fix
+
+- remove unnecessary visible language text before code sections for gemini
+
 ## 2.1.0 (2025-06-30)
 
 ### Feat
