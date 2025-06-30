@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT / Gemini AI Chat Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
-// @version      2.0.0
+// @version      2.1.0
 // @description  Export your ChatGPT or Gemini conversation into a properly and elegantly formatted Markdown or JSON.
 // @author       Mic Mejia (Refactored by Google Gemini)
 // @homepage     https://github.com/micmejia
@@ -16,11 +16,16 @@
   "use strict";
 
   // --- Global Constants ---
-  // Ensure this matches the @version in the UserScript header
-  const EXPORTER_VERSION = "2.0.0";
+  const EXPORTER_VERSION = "2.1.0";
   const EXPORT_CONTAINER_ID = "export-controls-container";
   const DOM_READY_TIMEOUT = 1000;
   const EXPORT_BUTTON_TITLE_PREFIX = `AI Chat Exporter v${EXPORTER_VERSION}`;
+  const ALERT_CONTAINER_ID = "exporter-alert-container";
+  const HIDE_ALERT_FLAG = "exporter_hide_scroll_alert"; // Local Storage flag
+  const ALERT_AUTO_CLOSE_DURATION = 30000; // 30 seconds
+
+  // --- Font Stack for UI Elements ---
+  const FONT_STACK = `system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"`;
 
   // Common styles for the container and buttons
   const COMMON_CONTROL_STYLES = `
@@ -34,6 +39,7 @@
           border-radius: 8px;
           display: flex;
           align-items: center;
+          font-family: ${FONT_STACK};
         `;
 
   const BUTTON_BASE_STYLES = `
@@ -48,6 +54,57 @@
   const BUTTON_SPACING_STYLE = `
           margin-left: 8px;
         `;
+
+  // --- Alert Styles ---
+  // Note: max-width for ALERT_STYLES will be dynamically set
+  const ALERT_STYLES = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10000;
+        background-color: rgba(91, 63, 134, 0.9); /* Shade of #5b3f86 with transparency */
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        display: flex;
+        flex-direction: column; /* Changed to column for title, message and checkbox */
+        justify-content: space-between;
+        align-items: flex-start; /* Align items to the start for better layout */
+        font-size: 14px;
+        opacity: 1;
+        transition: opacity 0.5s ease-in-out;
+        font-family: ${FONT_STACK};
+    `;
+
+  const ALERT_MESSAGE_ROW_STYLES = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        margin-bottom: 10px; /* Space between message and checkbox */
+    `;
+
+  const ALERT_CLOSE_BUTTON_STYLES = `
+        background: none;
+        border: none;
+        color: white;
+        font-size: 20px;
+        cursor: pointer;
+        margin-left: 15px; /* Add margin to push it right */
+        line-height: 1; /* Align 'x' vertically */
+    `;
+
+  const ALERT_CHECKBOX_CONTAINER_STYLES = `
+        display: flex;
+        align-items: center;
+        width: 100%;
+    `;
+
+  const ALERT_CHECKBOX_STYLES = `
+        margin-right: 5px;
+    `;
 
   // --- Hostname-Specific Selectors & Identifiers ---
   const CHATGPT_HOSTNAMES = ["chat.openai.com", "chatgpt.com"];
@@ -777,6 +834,61 @@
   // --- UI Management ---
   const UIManager = {
     /**
+     * Stores the timeout ID for the alert's auto-hide.
+     * @type {number|null}
+     */
+    alertTimeoutId: null,
+
+    /**
+     * Determines the appropriate width for the alert based on the chat's content area.
+     * @returns {string} The width in pixels (e.g., '600px').
+     */
+    getTargetContentWidth() {
+      let targetElement = null;
+      let width = 0;
+
+      if (
+        CHATGPT_HOSTNAMES.some((host) =>
+          window.location.hostname.includes(host)
+        )
+      ) {
+        // Try to find the specific input container for ChatGPT
+        targetElement = document.querySelector(
+          "form > div.relative.flex.h-full.max-w-full.flex-1.flex-col"
+        );
+        if (!targetElement) {
+          // Fallback to a broader conversation content container if the specific input container is not found
+          targetElement = document.querySelector(
+            "div.w-full.md\\:max-w-2xl.lg\\:max-w-3xl.xl\\:max-w-4xl.flex-shrink-0.px-4"
+          );
+        }
+      } else if (
+        GEMINI_HOSTNAMES.some((host) => window.location.hostname.includes(host))
+      ) {
+        // Try to find the specific input container for Gemini
+        targetElement = document.querySelector(
+          "gb-chat-input-textarea-container"
+        );
+        if (!targetElement) {
+          // Fallback to the main input section container
+          targetElement = document.querySelector(
+            "div.flex.flex-col.w-full.relative.max-w-3xl.m-auto"
+          );
+        }
+      }
+
+      if (targetElement) {
+        width = targetElement.offsetWidth;
+      }
+
+      // Apply a reasonable min/max to prevent extreme sizes
+      if (width < 350) width = 350; // Minimum width
+      if (width > 900) width = 900; // Maximum width for very wide monitors
+
+      return `${width}px`;
+    },
+
+    /**
      * Adds the export buttons to the current page.
      */
     addExportControls() {
@@ -808,14 +920,124 @@
     },
 
     /**
+     * Displays a non-obstructive alert message.
+     * @param {string} message The message to display.
+     */
+    showAlert(message) {
+      // Clear any existing auto-hide timeout before showing a new alert
+      if (UIManager.alertTimeoutId) {
+        clearTimeout(UIManager.alertTimeoutId);
+        UIManager.alertTimeoutId = null;
+      }
+
+      // Only show alert if the flag is not set in local storage
+      if (localStorage.getItem(HIDE_ALERT_FLAG) === "true") {
+        return;
+      }
+
+      // Check if alert is already present to avoid multiple instances.
+      // If it is, and we're trying to show a new one, remove the old one first.
+      let alertContainer = document.querySelector(`#${ALERT_CONTAINER_ID}`);
+      if (alertContainer) {
+        alertContainer.remove();
+      }
+
+      alertContainer = document.createElement("div");
+      alertContainer.id = ALERT_CONTAINER_ID;
+      alertContainer.style = ALERT_STYLES;
+      // Set dynamic max-width
+      alertContainer.style.maxWidth = UIManager.getTargetContentWidth();
+
+      // New: Title for the alert
+      const titleElement = document.createElement("strong");
+      titleElement.textContent = EXPORT_BUTTON_TITLE_PREFIX; // Use the global variable for title
+      titleElement.style.display = "block"; // Ensure it takes full width and breaks line
+      titleElement.style.marginBottom = "8px"; // Spacing before the message
+      titleElement.style.fontSize = "16px"; // Slightly larger font for title
+      titleElement.style.width = "100%"; // Take full available width of the alert box
+      titleElement.style.textAlign = "center"; // Center the title
+      alertContainer.appendChild(titleElement);
+
+      // Message row with close button
+      const messageRow = document.createElement("div");
+      messageRow.style = ALERT_MESSAGE_ROW_STYLES;
+
+      const messageSpan = document.createElement("span");
+      messageSpan.textContent = message;
+      messageRow.appendChild(messageSpan);
+
+      const closeButton = document.createElement("button");
+      closeButton.textContent = "×";
+      closeButton.style = ALERT_CLOSE_BUTTON_STYLES;
+      messageRow.appendChild(closeButton);
+      alertContainer.appendChild(messageRow);
+
+      // Checkbox for "never show again"
+      const checkboxContainer = document.createElement("div");
+      checkboxContainer.style = ALERT_CHECKBOX_CONTAINER_STYLES;
+
+      const hideCheckbox = document.createElement("input");
+      hideCheckbox.type = "checkbox";
+      hideCheckbox.id = "hide-exporter-alert";
+      hideCheckbox.style = ALERT_CHECKBOX_STYLES;
+      checkboxContainer.appendChild(hideCheckbox);
+
+      const label = document.createElement("label");
+      label.htmlFor = "hide-exporter-alert";
+      label.textContent = "Don't show this again";
+      checkboxContainer.appendChild(label);
+      alertContainer.appendChild(checkboxContainer);
+
+      document.body.appendChild(alertContainer);
+
+      // Function to hide and remove the alert
+      const hideAndRemoveAlert = () => {
+        alertContainer.style.opacity = "0";
+        setTimeout(() => {
+          if (alertContainer) {
+            // Check if element still exists before removing
+            alertContainer.remove();
+          }
+          UIManager.alertTimeoutId = null; // Reset timeout ID
+        }, 500); // Remove after fade out
+      };
+
+      // Event listener for close button
+      closeButton.onclick = () => {
+        if (hideCheckbox.checked) {
+          localStorage.setItem(HIDE_ALERT_FLAG, "true");
+        }
+        hideAndRemoveAlert();
+      };
+
+      // Set auto-hide timeout
+      UIManager.alertTimeoutId = setTimeout(() => {
+        // Only auto-hide if the checkbox is NOT checked
+        if (
+          alertContainer &&
+          alertContainer.parentNode &&
+          !hideCheckbox.checked
+        ) {
+          hideAndRemoveAlert();
+        } else {
+          UIManager.alertTimeoutId = null; // Clear if not auto-hiding
+        }
+      }, ALERT_AUTO_CLOSE_DURATION); // Use the defined duration
+    },
+
+    /**
      * Initializes a MutationObserver to ensure the controls are always present
      * even if the DOM changes dynamically (e.g., page navigation in SPAs).
+     * The observer will NOT manage the alert display directly to prevent re-triggering.
      */
     initObserver() {
-      const observer = new MutationObserver(() => {
+      const observer = new MutationObserver((mutations) => {
+        // Only re-add export controls if they are missing
         if (!document.querySelector(`#${EXPORT_CONTAINER_ID}`)) {
           UIManager.addExportControls();
         }
+        // IMPORTANT: The alert display logic is intentionally removed from here.
+        // It is handled once on page load in UIManager.init().
       });
       observer.observe(document.body, { childList: true, subtree: true });
     },
@@ -836,6 +1058,19 @@
         );
       }
       UIManager.initObserver();
+
+      // Show alert specifically for Gemini on initial load if not hidden
+      // This runs only once when the script is first executed on page load.
+      if (
+        GEMINI_HOSTNAMES.some((host) =>
+          window.location.hostname.includes(host)
+        ) &&
+        localStorage.getItem(HIDE_ALERT_FLAG) !== "true"
+      ) {
+        UIManager.showAlert(
+          "Before using the Export MD or Export JSON tool (by clicking the button at the right corner of the page), please scroll up to the beginning of the conversation to ensure all messages will be exported. If you don't scroll up first, some earlier messages might be missed."
+        );
+      }
     },
   };
 
