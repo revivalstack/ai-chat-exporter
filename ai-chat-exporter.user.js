@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT / Gemini AI Chat Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
-// @version      2.1.1
+// @version      2.2.0
 // @description  Export your ChatGPT or Gemini conversation into a properly and elegantly formatted Markdown or JSON.
 // @author       Mic Mejia (Refactored by Google Gemini)
 // @homepage     https://github.com/micmejia
@@ -16,95 +16,171 @@
   "use strict";
 
   // --- Global Constants ---
-  const EXPORTER_VERSION = "2.1.1";
+  const EXPORTER_VERSION = "2.2.0";
   const EXPORT_CONTAINER_ID = "export-controls-container";
+  const OUTLINE_CONTAINER_ID = "export-outline-container"; // ID for the outline div
   const DOM_READY_TIMEOUT = 1000;
   const EXPORT_BUTTON_TITLE_PREFIX = `AI Chat Exporter v${EXPORTER_VERSION}`;
   const ALERT_CONTAINER_ID = "exporter-alert-container";
   const HIDE_ALERT_FLAG = "exporter_hide_scroll_alert"; // Local Storage flag
   const ALERT_AUTO_CLOSE_DURATION = 30000; // 30 seconds
+  const OUTLINE_COLLAPSED_STATE_KEY = "outline_is_collapsed"; // Local Storage key for collapsed state
 
   // --- Font Stack for UI Elements ---
   const FONT_STACK = `system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"`;
 
   // Common styles for the container and buttons
-  const COMMON_CONTROL_STYLES = `
-          position: fixed;
-          bottom: 20px;
-          right: 20px;
-          z-index: 9999;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-          font-size: 14px;
-          cursor: pointer;
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          font-family: ${FONT_STACK};
-        `;
+  // These will be applied property by property.
+  const COMMON_CONTROL_PROPS = {
+    position: "fixed",
+    bottom: "20px",
+    right: "20px",
+    zIndex: "9999",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+    fontSize: "14px",
+    cursor: "pointer",
+    borderRadius: "8px",
+    display: "flex",
+    alignItems: "center",
+    fontFamily: FONT_STACK,
+  };
 
-  const BUTTON_BASE_STYLES = `
-          padding: 10px 14px;
-          background-color: #5b3f86; /* Primary brand color */
-          color: white;
-          border: none;
-          cursor: pointer;
-          border-radius: 8px;
-        `;
+  // New styles for the outline container (property by property)
+  const OUTLINE_CONTAINER_PROPS = {
+    position: "fixed",
+    bottom: "70px", // Position above the export buttons
+    right: "20px",
+    zIndex: "9998", // Below buttons, above general content
+    boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+    fontSize: "12px", // Smaller font for outline
+    borderRadius: "8px",
+    backgroundColor: "#fff", // White background
+    color: "#333", // Dark text
+    maxHeight: "250px", // Max height for scrollable content
+    overflowY: "auto", // Enable vertical scrolling
+    width: "300px", // Fixed width
+    padding: "10px",
+    border: "1px solid #ddd",
+    fontFamily: FONT_STACK,
+    display: "flex",
+    flexDirection: "column",
+    transition:
+      "max-height 0.3s ease-in-out, padding 0.3s ease-in-out, opacity 0.3s ease-in-out",
+    opacity: "1",
+    transformOrigin: "bottom right", // For scaling/transform animations if desired
+  };
 
-  const BUTTON_SPACING_STYLE = `
-          margin-left: 8px;
-        `;
+  const OUTLINE_CONTAINER_COLLAPSED_PROPS = {
+    maxHeight: "30px", // Height when collapsed
+    padding: "5px 10px",
+    overflow: "hidden",
+    opacity: "0.9",
+  };
+
+  const OUTLINE_HEADER_PROPS = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "5px",
+    paddingBottom: "5px",
+    borderBottom: "1px solid #eee",
+    fontWeight: "bold",
+    cursor: "pointer", // Indicates it's clickable to collapse/expand
+  };
+
+  // New styles for the "Select all" section
+  const SELECT_ALL_CONTAINER_PROPS = {
+    display: "flex",
+    alignItems: "center",
+    padding: "5px 0",
+    marginBottom: "5px",
+    borderBottom: "1px solid #eee",
+  };
+
+  const OUTLINE_ITEM_PROPS = {
+    display: "flex",
+    alignItems: "center",
+    marginBottom: "3px",
+    lineHeight: "1.3",
+  };
+
+  const OUTLINE_CHECKBOX_PROPS = {
+    marginRight: "5px",
+    cursor: "pointer",
+  };
+
+  const OUTLINE_TOGGLE_BUTTON_PROPS = {
+    background: "none",
+    border: "none",
+    fontSize: "16px",
+    cursor: "pointer",
+    padding: "0 5px",
+    color: "#5b3f86",
+  };
+
+  const BUTTON_BASE_PROPS = {
+    padding: "10px 14px",
+    backgroundColor: "#5b3f86", // Primary brand color
+    color: "white",
+    border: "none",
+    cursor: "pointer",
+    borderRadius: "8px",
+  };
+
+  const BUTTON_SPACING_PROPS = {
+    marginLeft: "8px",
+  };
 
   // --- Alert Styles ---
-  // Note: max-width for ALERT_STYLES will be dynamically set
-  const ALERT_STYLES = `
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 10000;
-        background-color: rgba(91, 63, 134, 0.9); /* Shade of #5b3f86 with transparency */
-        color: white;
-        padding: 15px 20px;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        display: flex;
-        flex-direction: column; /* Changed to column for title, message and checkbox */
-        justify-content: space-between;
-        align-items: flex-start; /* Align items to the start for better layout */
-        font-size: 14px;
-        opacity: 1;
-        transition: opacity 0.5s ease-in-out;
-        font-family: ${FONT_STACK};
-    `;
+  // Note: max-width for ALERT_PROPS will be dynamically set
+  const ALERT_PROPS = {
+    position: "fixed",
+    top: "20px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    zIndex: "10000",
+    backgroundColor: "rgba(91, 63, 134, 0.9)", // Shade of #5b3f86 with transparency
+    color: "white",
+    padding: "15px 20px",
+    borderRadius: "8px",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+    display: "flex",
+    flexDirection: "column", // Changed to column for title, message and checkbox
+    justifyContent: "space-between",
+    alignItems: "flex-start", // Align items to the start for better layout
+    fontSize: "14px",
+    opacity: "1",
+    transition: "opacity 0.5s ease-in-out",
+    fontFamily: FONT_STACK,
+  };
 
-  const ALERT_MESSAGE_ROW_STYLES = `
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-        margin-bottom: 10px; /* Space between message and checkbox */
-    `;
+  const ALERT_MESSAGE_ROW_PROPS = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: "10px", // Space between message and checkbox
+  };
 
-  const ALERT_CLOSE_BUTTON_STYLES = `
-        background: none;
-        border: none;
-        color: white;
-        font-size: 20px;
-        cursor: pointer;
-        margin-left: 15px; /* Add margin to push it right */
-        line-height: 1; /* Align 'x' vertically */
-    `;
+  const ALERT_CLOSE_BUTTON_PROPS = {
+    background: "none",
+    border: "none",
+    color: "white",
+    fontSize: "20px",
+    cursor: "pointer",
+    marginLeft: "15px", // Add margin to push it right
+    lineHeight: "1", // Align 'x' vertically
+  };
 
-  const ALERT_CHECKBOX_CONTAINER_STYLES = `
-        display: flex;
-        align-items: center;
-        width: 100%;
-    `;
+  const ALERT_CHECKBOX_CONTAINER_PROPS = {
+    display: "flex",
+    alignItems: "center",
+    width: "100%",
+  };
 
-  const ALERT_CHECKBOX_STYLES = `
-        margin-right: 5px;
-    `;
+  const ALERT_CHECKBOX_PROPS = {
+    marginRight: "5px",
+  };
 
   // --- Hostname-Specific Selectors & Identifiers ---
   const CHATGPT_HOSTNAMES = ["chat.openai.com", "chatgpt.com"];
@@ -492,10 +568,24 @@
       a.click();
       URL.revokeObjectURL(url);
     },
+
+    /**
+     * Applies a set of CSS properties to an element.
+     * @param {HTMLElement} element The HTML element to style.
+     * @param {object} styles An object where keys are CSS property names (camelCase) and values are their values.
+     */
+    applyStyles(element, styles) {
+      for (const prop in styles) {
+        element.style[prop] = styles[prop];
+      }
+    },
   };
 
   // --- Core Export Logic ---
   const ChatExporter = {
+    _currentConversationData: null, // Store the last extracted conversation data
+    _selectedMessageIds: new Set(), // Store IDs of selected messages for export
+
     /**
      * Extracts conversation data from ChatGPT's DOM structure.
      * @param {Document} doc - The Document object.
@@ -533,12 +623,18 @@
           .includes(CHATGPT_USER_MESSAGE_INDICATOR);
         const author = isUser ? "user" : "ai";
 
+        // Assign a unique ID to each message. This is crucial for selection.
+        const messageId = `${author}-${chatIndex}-${Date.now()}-${Math.random()
+          .toString(36)
+          .substring(2, 9)}`;
+
         messages.push({
-          id: `${author}-${chatIndex}`,
+          id: messageId, // Unique ID
           author: author,
           contentHtml: article, // Store the direct DOM Element
           contentText: fullText.trim(),
           timestamp: new Date(),
+          originalIndex: chatIndex, // Keep original index for outline
         });
 
         if (!isUser) chatIndex++;
@@ -547,7 +643,7 @@
       return {
         title: title,
         messages: messages,
-        messageCount: messages.length,
+        messageCount: messages.filter((m) => m.author === "user").length, // Count user messages as questions
         exportedAt: new Date(),
         exporterVersion: EXPORTER_VERSION,
         threadUrl: window.location.href,
@@ -597,7 +693,7 @@
       const messages = [];
       let chatIndex = 1;
 
-      for (const item of messageItems) {
+      for (const item /* @type {HTMLElement} */ of messageItems) {
         let author = "";
         let messageContentElem = null;
 
@@ -613,12 +709,18 @@
 
         if (!messageContentElem) continue;
 
+        // Assign a unique ID to each message. This is crucial for selection.
+        const messageId = `${author}-${chatIndex}-${Date.now()}-${Math.random()
+          .toString(36)
+          .substring(2, 9)}`;
+
         messages.push({
-          id: `${author}-${chatIndex}`,
+          id: messageId, // Unique ID
           author: author,
           contentHtml: messageContentElem, // Store the direct DOM Element
           contentText: messageContentElem.innerText.trim(),
           timestamp: new Date(),
+          originalIndex: chatIndex, // Keep original index for outline
         });
 
         if (author === "ai") chatIndex++;
@@ -655,7 +757,7 @@
       return {
         title: title,
         messages: messages,
-        messageCount: messages.length,
+        messageCount: messages.filter((m) => m.author === "user").length, // Count user messages as questions
         exportedAt: new Date(),
         exporterVersion: EXPORTER_VERSION,
         threadUrl: window.location.href,
@@ -664,46 +766,49 @@
 
     /**
      * Converts standardized conversation data to Markdown format.
-     * @param {object} conversationData - The standardized conversation data.
+     * This function now expects a pre-filtered `conversationData`.
+     * @param {object} conversationData - The standardized conversation data (already filtered).
      * @param {TurndownService} turndownServiceInstance - Configured TurndownService.
      * @returns {{output: string, fileName: string}} Markdown string and filename.
      */
     formatToMarkdown(conversationData, turndownServiceInstance) {
       let toc = "";
       let content = "";
-      let chatIndex = 1;
+      let exportChatIndex = 0; // Initialize to 0 for sequential user message numbering
 
       conversationData.messages.forEach((msg) => {
         if (msg.author === "user") {
+          exportChatIndex++; // Increment only for user messages
           const preview = Utils.truncate(
             msg.contentText.replace(/\s+/g, " "),
             70
           );
-          toc += `- [${chatIndex}: ${Utils.escapeMd(
+          toc += `- [${exportChatIndex}: ${Utils.escapeMd(
             preview
-          )}](#chat-${chatIndex})\n`;
+          )}](#chat-${exportChatIndex})\n`;
           content +=
-            `### chat-${chatIndex}\n\n> ` +
+            `### chat-${exportChatIndex}\n\n> ` +
             msg.contentText.replace(/\n/g, "\n> ") +
             "\n\n";
         } else {
-          const markdownContent = turndownServiceInstance.turndown(
-            msg.contentHtml
-          );
+          let markdownContent;
+          try {
+            markdownContent = turndownServiceInstance.turndown(msg.contentHtml);
+          } catch (e) {
+            console.error(
+              `Error converting AI message ${msg.id} to Markdown:`,
+              e
+            );
+            markdownContent = `[CONVERSION ERROR: Failed to render this section. Original content below]\n\n\`\`\`\n${msg.contentText}\n\`\`\`\n`;
+          }
           content += markdownContent + "\n\n" + MARKDOWN_BACK_TO_TOP_LINK;
-          chatIndex++;
         }
+        // Removed the incorrect increment logic from here
       });
 
       const localTime = Utils.formatLocalTime(conversationData.exportedAt);
 
-      const yaml = `---\nthread_name: ${
-        conversationData.title
-      }\nmessage_count: ${
-        conversationData.messageCount / 2
-      }\nexporter_version: ${EXPORTER_VERSION}\nexported_at: ${localTime}\nthread_url: ${
-        conversationData.threadUrl
-      }\n---\n`;
+      const yaml = `---\nthread_name: ${conversationData.title}\nmessage_count: ${conversationData.messageCount}\nexporter_version: ${EXPORTER_VERSION}\nexported_at: ${localTime}\nthread_url: ${conversationData.threadUrl}\n---\n`;
       const tocBlock = `## Table of Contents\n\n${toc.trim()}\n\n`;
 
       const finalOutput =
@@ -727,18 +832,19 @@
 
     /**
      * Converts standardized conversation data to JSON format.
-     * @param {object} conversationData - The standardized conversation data.
+     * This function now expects a pre-filtered `conversationData`.
+     * @param {object} conversationData - The standardized conversation data (already filtered).
      * @returns {{output: string, fileName: string}} JSON string and filename.
      */
     formatToJSON(conversationData) {
       const jsonOutput = {
         thread_name: conversationData.title,
-        message_count: conversationData.messageCount / 2,
+        message_count: conversationData.messageCount,
         exporter_version: EXPORTER_VERSION,
         exported_at: conversationData.exportedAt.toISOString(),
         thread_url: conversationData.threadUrl,
         messages: conversationData.messages.map((msg) => ({
-          id: msg.id,
+          id: msg.id.split("-").slice(0, 2).join("-"), // Keep the ID for reference in JSON
           author: msg.author,
           content: msg.contentText,
         })),
@@ -762,27 +868,79 @@
 
     /**
      * Main export orchestrator. Extracts data, configures Turndown, and formats.
+     * This function now filters messages based on _selectedMessageIds.
      * @param {string} format - The desired output format ('markdown' or 'json').
      */
     initiateExport(format) {
-      const currentHost = window.location.hostname;
-      let conversationData = null;
+      // Use the _currentConversationData that matches the outline's IDs
+      const rawConversationData = ChatExporter._currentConversationData;
       let turndownServiceInstance = null;
 
-      if (CHATGPT_HOSTNAMES.some((host) => currentHost.includes(host))) {
-        conversationData =
-          ChatExporter.extractChatGPTConversationData(document);
-      } else if (GEMINI_HOSTNAMES.some((host) => currentHost.includes(host))) {
-        conversationData = ChatExporter.extractGeminiConversationData(document);
-      } else {
-        alert("This exporter does not support the current chat platform.");
-        return;
-      }
-
-      if (!conversationData || conversationData.messages.length === 0) {
+      if (!rawConversationData || rawConversationData.messages.length === 0) {
         alert("No messages found to export.");
         return;
       }
+
+      // --- Refresh ChatExporter._selectedMessageIds from current UI state ---
+      ChatExporter._selectedMessageIds.clear(); // Clear previous state
+      const outlineContainer = document.querySelector(
+        `#${OUTLINE_CONTAINER_ID}`
+      );
+      if (outlineContainer) {
+        const checkedCheckboxes = outlineContainer.querySelectorAll(
+          ".outline-item-checkbox:checked"
+        );
+        checkedCheckboxes.forEach((cb) => {
+          if (cb.dataset.messageId) {
+            ChatExporter._selectedMessageIds.add(cb.dataset.messageId);
+          }
+        });
+
+        // Also, manually add AI responses that follow selected user messages.
+        // This logic is crucial because only user messages have checkboxes.
+        // Iterate through the raw conversation data to find associated AI responses.
+        rawConversationData.messages.forEach((msg, index) => {
+          if (msg.author === "ai") {
+            // Find the preceding user message
+            let prevUserMessageId = null;
+            for (let i = index - 1; i >= 0; i--) {
+              if (rawConversationData.messages[i].author === "user") {
+                prevUserMessageId = rawConversationData.messages[i].id;
+                break;
+              }
+            }
+            if (
+              prevUserMessageId &&
+              ChatExporter._selectedMessageIds.has(prevUserMessageId)
+            ) {
+              ChatExporter._selectedMessageIds.add(msg.id);
+            }
+          }
+        });
+      }
+      // --- End Refresh ---
+
+      // --- Filter messages based on selection ---
+      const filteredMessages = rawConversationData.messages.filter((msg) =>
+        ChatExporter._selectedMessageIds.has(msg.id)
+      );
+
+      if (filteredMessages.length === 0) {
+        alert(
+          "No messages selected for export. Please check at least one question in the outline."
+        );
+        return;
+      }
+
+      // Create a new conversationData object for the filtered export
+      // Also, re-calculate messageCount for the filtered set
+      const conversationDataForExport = {
+        ...rawConversationData,
+        messages: filteredMessages,
+        messageCount: filteredMessages.filter((m) => m.author === "user")
+          .length,
+        exportedAt: new Date(), // Set current timestamp just before export
+      };
 
       let fileOutput = null;
       let fileName = null;
@@ -792,7 +950,11 @@
         turndownServiceInstance = new TurndownService();
 
         // ChatGPT-specific rules for handling unique elements/classes
-        if (CHATGPT_HOSTNAMES.some((host) => currentHost.includes(host))) {
+        if (
+          CHATGPT_HOSTNAMES.some((host) =>
+            window.location.hostname.includes(host)
+          )
+        ) {
           turndownServiceInstance.addRule("popup-div", {
             filter: (node) =>
               node.nodeName === "DIV" &&
@@ -822,7 +984,11 @@
         }
 
         // Gemini specific rule to remove language labels from being processed as content
-        if (GEMINI_HOSTNAMES.some((host) => currentHost.includes(host))) {
+        if (
+          GEMINI_HOSTNAMES.some((host) =>
+            window.location.hostname.includes(host)
+          )
+        ) {
           turndownServiceInstance.addRule("geminiCodeLanguageLabel", {
             filter: (node) =>
               node.nodeName === "SPAN" &&
@@ -832,15 +998,17 @@
           });
         }
 
+        // Pass the filtered conversation data to formatToMarkdown
         const markdownResult = ChatExporter.formatToMarkdown(
-          conversationData,
+          conversationDataForExport,
           turndownServiceInstance
         );
         fileOutput = markdownResult.output;
         fileName = markdownResult.fileName;
         mimeType = "text/markdown;charset=utf-8";
       } else if (format === "json") {
-        const jsonResult = ChatExporter.formatToJSON(conversationData);
+        // Pass the filtered conversation data to formatToJSON
+        const jsonResult = ChatExporter.formatToJSON(conversationDataForExport);
         fileOutput = jsonResult.output;
         fileName = jsonResult.fileName;
         mimeType = "application/json;charset=utf-8";
@@ -862,6 +1030,7 @@
      * @type {number|null}
      */
     alertTimeoutId: null,
+    _outlineIsCollapsed: false, // State for the outline collapse
 
     /**
      * Determines the appropriate width for the alert based on the chat's content area.
@@ -922,13 +1091,13 @@
 
       const container = document.createElement("div");
       container.id = EXPORT_CONTAINER_ID;
-      container.style = COMMON_CONTROL_STYLES;
+      Utils.applyStyles(container, COMMON_CONTROL_PROPS);
 
       const markdownButton = document.createElement("button");
       markdownButton.id = "export-markdown-btn";
       markdownButton.textContent = "⬇ Export MD";
       markdownButton.title = `${EXPORT_BUTTON_TITLE_PREFIX} - Markdown`;
-      markdownButton.style = BUTTON_BASE_STYLES;
+      Utils.applyStyles(markdownButton, BUTTON_BASE_PROPS);
       markdownButton.onclick = () => ChatExporter.initiateExport("markdown");
       container.appendChild(markdownButton);
 
@@ -936,11 +1105,351 @@
       jsonButton.id = "export-json-btn";
       jsonButton.textContent = "⬇ JSON";
       jsonButton.title = `${EXPORT_BUTTON_TITLE_PREFIX} - JSON`;
-      jsonButton.style = `${BUTTON_BASE_STYLES} ${BUTTON_SPACING_STYLE}`;
+      Utils.applyStyles(jsonButton, {
+        ...BUTTON_BASE_PROPS,
+        ...BUTTON_SPACING_PROPS,
+      });
       jsonButton.onclick = () => ChatExporter.initiateExport("json");
       container.appendChild(jsonButton);
 
       document.body.appendChild(container);
+    },
+
+    /**
+     * Adds and manages the collapsible outline div.
+     */
+    addOutlineControls() {
+      let outlineContainer = document.querySelector(`#${OUTLINE_CONTAINER_ID}`);
+      if (!outlineContainer) {
+        outlineContainer = document.createElement("div");
+        outlineContainer.id = OUTLINE_CONTAINER_ID;
+        document.body.appendChild(outlineContainer);
+      }
+
+      // Apply base styles
+      Utils.applyStyles(outlineContainer, OUTLINE_CONTAINER_PROPS);
+
+      // Apply collapsed styles if state is collapsed
+      if (UIManager._outlineIsCollapsed) {
+        Utils.applyStyles(outlineContainer, OUTLINE_CONTAINER_COLLAPSED_PROPS);
+      }
+
+      UIManager.generateOutlineContent();
+    },
+
+    /**
+     * Generates and updates the content of the outline div.
+     * This function should be called whenever the conversation data changes.
+     */
+    generateOutlineContent() {
+      const outlineContainer = document.querySelector(
+        `#${OUTLINE_CONTAINER_ID}`
+      );
+      if (!outlineContainer) return;
+
+      // Extract fresh conversation data
+      const currentHost = window.location.hostname; // Define currentHost here
+      let freshConversationData = null;
+      if (CHATGPT_HOSTNAMES.some((host) => currentHost.includes(host))) {
+        freshConversationData =
+          ChatExporter.extractChatGPTConversationData(document);
+      } else if (GEMINI_HOSTNAMES.some((host) => currentHost.includes(host))) {
+        freshConversationData =
+          ChatExporter.extractGeminiConversationData(document);
+      } else {
+        outlineContainer.style.display = "none"; // Hide if not supported
+        return;
+      }
+
+      // Check if conversation data has changed significantly to warrant a re-render
+      // Compare message count and content of the last few messages as a heuristic
+      // This is to avoid regenerating the outline on every minor DOM change.
+      const hasDataChanged =
+        !ChatExporter._currentConversationData || // No previous data
+        !freshConversationData || // No new data
+        freshConversationData.messages.length !==
+          ChatExporter._currentConversationData.messages.length ||
+        (freshConversationData.messages.length > 0 &&
+          ChatExporter._currentConversationData.messages.length > 0 &&
+          freshConversationData.messages[
+            freshConversationData.messages.length - 1
+          ].contentText !==
+            ChatExporter._currentConversationData.messages[
+              ChatExporter._currentConversationData.messages.length - 1
+            ].contentText);
+
+      if (!hasDataChanged) {
+        // If data hasn't changed, just ensure visibility based on message presence
+        outlineContainer.style.display =
+          freshConversationData && freshConversationData.messages.length > 0
+            ? "flex"
+            : "none";
+        return; // No need to regenerate content
+      }
+
+      // Update stored conversation data
+      ChatExporter._currentConversationData = freshConversationData;
+
+      // Hide if no messages after update
+      if (
+        !ChatExporter._currentConversationData ||
+        ChatExporter._currentConversationData.messages.length === 0
+      ) {
+        outlineContainer.style.display = "none";
+        return;
+      } else {
+        outlineContainer.style.display = "flex";
+      }
+
+      // Clear existing content safely to avoid TrustedHTML error
+      while (outlineContainer.firstChild) {
+        outlineContainer.removeChild(outlineContainer.firstChild);
+      }
+
+      // Reset selections and check all by default (only on fresh rebuild)
+      ChatExporter._selectedMessageIds.clear();
+
+      // Header for Chat Outline (always visible)
+      const headerDiv = document.createElement("div");
+      Utils.applyStyles(headerDiv, OUTLINE_HEADER_PROPS);
+      headerDiv.title = `AI Chat Exporter v${EXPORTER_VERSION}`;
+      headerDiv.onclick = UIManager.toggleOutlineCollapse; // Only this div handles collapse
+
+      const titleSpan = document.createElement("span");
+      titleSpan.textContent = "AI Chat Exporter: Chat Outline";
+      headerDiv.appendChild(titleSpan);
+
+      const toggleButton = document.createElement("button");
+      toggleButton.id = "outline-toggle-btn";
+      toggleButton.textContent = UIManager._outlineIsCollapsed ? "▲" : "▼"; // Up/Down arrow
+      Utils.applyStyles(toggleButton, OUTLINE_TOGGLE_BUTTON_PROPS);
+      headerDiv.appendChild(toggleButton);
+
+      outlineContainer.appendChild(headerDiv);
+
+      // New: Select All checkbox and label section (below header)
+      const selectAllContainer = document.createElement("div");
+      Utils.applyStyles(selectAllContainer, SELECT_ALL_CONTAINER_PROPS);
+      selectAllContainer.id = "outline-select-all-container"; // For easier hiding/showing
+
+      const masterCheckbox = document.createElement("input");
+      masterCheckbox.type = "checkbox";
+      masterCheckbox.id = "outline-select-all";
+      masterCheckbox.checked = true; // Default to checked
+      Utils.applyStyles(masterCheckbox, OUTLINE_CHECKBOX_PROPS);
+      // masterCheckbox.onchange will be set later after updateSelectedCountDisplay is defined and elements exist
+      selectAllContainer.appendChild(masterCheckbox);
+
+      const selectAllLabel = document.createElement("span");
+      selectAllContainer.appendChild(selectAllLabel); // Append label here, content set later
+      outlineContainer.appendChild(selectAllContainer);
+
+      const hr = document.createElement("hr"); // Horizontal rule
+      hr.style.cssText =
+        "border: none; border-top: 1px solid #eee; margin: 5px 0;";
+      outlineContainer.appendChild(hr);
+
+      // List of messages
+      const messageListDiv = document.createElement("div");
+      messageListDiv.id = "outline-message-list";
+      // Apply styles to hide when collapsed
+      if (UIManager._outlineIsCollapsed) {
+        messageListDiv.style.display = "none";
+      }
+
+      let userQuestionCount = 0; // This will be 'y' (total items)
+
+      // // Define the helper function to update the count display
+      // const updateSelectedCountDisplay = () => {
+      //   // Only count checkboxes for user messages, which are the ones in the outline
+      //   const checkedCheckboxes = outlineContainer.querySelectorAll(
+      //     ".outline-item-checkbox:checked"
+      //   );
+      //   const totalUserMessages = userQuestionCount; // 'y'
+      //   const selectedUserMessages = checkedCheckboxes.length; // 'x'
+      //   selectAllLabel.innerHTML = `<strong>Selected items to export: ${selectedUserMessages} out of ${totalUserMessages}</strong>`;
+      // };
+
+      // Define the helper function to update the count display
+      const updateSelectedCountDisplay = () => {
+        // Only count checkboxes for user messages, which are the ones in the outline
+        const checkedCheckboxes = outlineContainer.querySelectorAll(
+          ".outline-item-checkbox:checked"
+        );
+        const totalUserMessages = userQuestionCount; // 'y'
+        const selectedUserMessages = checkedCheckboxes.length; // 'x'
+
+        // Clear existing content safely
+        while (selectAllLabel.firstChild) {
+          selectAllLabel.removeChild(selectAllLabel.firstChild);
+        }
+
+        // Create a strong element for bold text
+        const strongElement = document.createElement("strong");
+        strongElement.appendChild(
+          document.createTextNode("Selected items to export:  ")
+        );
+        strongElement.appendChild(
+          document.createTextNode(selectedUserMessages.toString())
+        );
+        strongElement.appendChild(document.createTextNode(" out of "));
+        strongElement.appendChild(
+          document.createTextNode(totalUserMessages.toString())
+        );
+
+        selectAllLabel.appendChild(strongElement);
+      };
+
+      ChatExporter._currentConversationData.messages.forEach((msg) => {
+        if (msg.author === "user") {
+          userQuestionCount++; // Increment 'y'
+          const itemDiv = document.createElement("div");
+          Utils.applyStyles(itemDiv, OUTLINE_ITEM_PROPS);
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = true; // Default to checked
+          checkbox.className = "outline-item-checkbox"; // Add class for easy selection
+          checkbox.dataset.messageId = msg.id; // Store message ID on checkbox
+          Utils.applyStyles(checkbox, OUTLINE_CHECKBOX_PROPS);
+          checkbox.onchange = (e) => {
+            // Update master checkbox state based on individual checkboxes
+            const allChecked = Array.from(
+              outlineContainer.querySelectorAll(".outline-item-checkbox")
+            ).every((cb) => cb.checked);
+            masterCheckbox.checked = allChecked;
+            updateSelectedCountDisplay(); // Update count on individual checkbox change
+          };
+          itemDiv.appendChild(checkbox);
+
+          const itemText = document.createElement("span");
+          itemText.textContent = `${userQuestionCount}: ${Utils.truncate(
+            msg.contentText,
+            40
+          )}`; // Truncate to 40
+          itemText.style.cursor = "pointer"; // Set cursor to hand
+          itemText.style.textDecoration = "none"; // Remove underline
+          itemText.title = `${userQuestionCount}: ${Utils.truncate(
+            msg.contentText.replace(/\n+/g, "\n"),
+            140
+          )}`; // Truncate to 140 // Add tooltip
+
+          // Add hover effect
+          itemText.onmouseover = () => {
+            itemText.style.backgroundColor = "#f0f0f0"; // Light gray background on hover
+            itemText.style.color = "#5b3f86"; // Change text color on hover
+          };
+          itemText.onmouseout = () => {
+            itemText.style.backgroundColor = "transparent"; // Revert background on mouse out
+            itemText.style.color = "#333"; // Revert text color on mouse out (assuming default is #333, adjust if needed)
+          };
+
+          itemText.onclick = () => {
+            // Find the original message element using the stored contentHtml reference
+            const messageElement =
+              ChatExporter._currentConversationData.messages.find(
+                (m) => m.id === msg.id
+              )?.contentHtml;
+
+            if (messageElement) {
+              messageElement.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            }
+          };
+          itemDiv.appendChild(itemText);
+
+          messageListDiv.appendChild(itemDiv);
+
+          // Add to selected IDs by default (will be refreshed on export anyway)
+          ChatExporter._selectedMessageIds.add(msg.id);
+        } else {
+          // For AI responses, if they follow a selected user message, also add them to selected IDs
+          // This is a pre-population, actual selection is determined on export.
+          const prevUserMessage =
+            ChatExporter._currentConversationData.messages.find(
+              (m, i) =>
+                i <
+                  ChatExporter._currentConversationData.messages.indexOf(msg) &&
+                m.author === "user"
+            );
+          if (
+            prevUserMessage &&
+            ChatExporter._selectedMessageIds.has(prevUserMessage.id)
+          ) {
+            ChatExporter._selectedMessageIds.add(msg.id);
+          }
+        }
+      });
+
+      // Now set the master checkbox onchange after userQuestionCount is final
+      masterCheckbox.onchange = (e) => {
+        const isChecked = e.target.checked;
+        const checkboxes = outlineContainer.querySelectorAll(
+          ".outline-item-checkbox"
+        );
+        checkboxes.forEach((cb) => {
+          cb.checked = isChecked;
+        });
+        updateSelectedCountDisplay(); // Update count on master checkbox change
+      };
+
+      outlineContainer.appendChild(messageListDiv);
+
+      // Initial call to set the display text once all checkboxes are rendered and userQuestionCount is final
+      // This call is now placed AFTER messageListDiv (containing all checkboxes) is appended to outlineContainer.
+      updateSelectedCountDisplay();
+
+      // Ensure visibility based on collapse state
+      if (UIManager._outlineIsCollapsed) {
+        selectAllContainer.style.display = "none";
+        hr.style.display = "none";
+        messageListDiv.style.display = "none";
+      } else {
+        selectAllContainer.style.display = "flex";
+        hr.style.display = "block";
+        messageListDiv.style.display = "block";
+      }
+    },
+
+    /**
+     * Toggles the collapse state of the outline div.
+     */
+    toggleOutlineCollapse() {
+      UIManager._outlineIsCollapsed = !UIManager._outlineIsCollapsed;
+      // New: Save the new state to localStorage
+      localStorage.setItem(
+        OUTLINE_COLLAPSED_STATE_KEY,
+        UIManager._outlineIsCollapsed.toString()
+      );
+
+      const outlineContainer = document.querySelector(
+        `#${OUTLINE_CONTAINER_ID}`
+      );
+      const selectAllContainer = document.querySelector(
+        "#outline-select-all-container"
+      );
+      const hr = outlineContainer.querySelector("hr");
+      const messageListDiv = document.querySelector("#outline-message-list");
+      const toggleButton = document.querySelector("#outline-toggle-btn");
+
+      if (UIManager._outlineIsCollapsed) {
+        Utils.applyStyles(outlineContainer, {
+          ...OUTLINE_CONTAINER_PROPS,
+          ...OUTLINE_CONTAINER_COLLAPSED_PROPS,
+        });
+        if (selectAllContainer) selectAllContainer.style.display = "none";
+        if (hr) hr.style.display = "none";
+        if (messageListDiv) messageListDiv.style.display = "none";
+        if (toggleButton) toggleButton.textContent = "▲";
+      } else {
+        Utils.applyStyles(outlineContainer, OUTLINE_CONTAINER_PROPS);
+        if (selectAllContainer) selectAllContainer.style.display = "flex";
+        if (hr) hr.style.display = "block";
+        if (messageListDiv) messageListDiv.style.display = "block";
+        if (toggleButton) toggleButton.textContent = "▼";
+      }
     },
 
     /**
@@ -968,7 +1477,7 @@
 
       alertContainer = document.createElement("div");
       alertContainer.id = ALERT_CONTAINER_ID;
-      alertContainer.style = ALERT_STYLES;
+      Utils.applyStyles(alertContainer, ALERT_PROPS);
       // Set dynamic max-width
       alertContainer.style.maxWidth = UIManager.getTargetContentWidth();
 
@@ -984,7 +1493,7 @@
 
       // Message row with close button
       const messageRow = document.createElement("div");
-      messageRow.style = ALERT_MESSAGE_ROW_STYLES;
+      Utils.applyStyles(messageRow, ALERT_MESSAGE_ROW_PROPS);
 
       const messageSpan = document.createElement("span");
       messageSpan.textContent = message;
@@ -992,18 +1501,18 @@
 
       const closeButton = document.createElement("button");
       closeButton.textContent = "×";
-      closeButton.style = ALERT_CLOSE_BUTTON_STYLES;
+      Utils.applyStyles(closeButton, ALERT_CLOSE_BUTTON_PROPS);
       messageRow.appendChild(closeButton);
       alertContainer.appendChild(messageRow);
 
       // Checkbox for "never show again"
       const checkboxContainer = document.createElement("div");
-      checkboxContainer.style = ALERT_CHECKBOX_CONTAINER_STYLES;
+      Utils.applyStyles(checkboxContainer, ALERT_CHECKBOX_CONTAINER_PROPS);
 
       const hideCheckbox = document.createElement("input");
       hideCheckbox.type = "checkbox";
       hideCheckbox.id = "hide-exporter-alert";
-      hideCheckbox.style = ALERT_CHECKBOX_STYLES;
+      Utils.applyStyles(hideCheckbox, ALERT_CHECKBOX_PROPS);
       checkboxContainer.appendChild(hideCheckbox);
 
       const label = document.createElement("label");
@@ -1051,8 +1560,7 @@
 
     /**
      * Initializes a MutationObserver to ensure the controls are always present
-     * even if the DOM changes dynamically (e.g., page navigation in SPAs).
-     * The observer will NOT manage the alert display directly to prevent re-triggering.
+     * and to regenerate the outline on DOM changes.
      */
     initObserver() {
       const observer = new MutationObserver((mutations) => {
@@ -1060,31 +1568,90 @@
         if (!document.querySelector(`#${EXPORT_CONTAINER_ID}`)) {
           UIManager.addExportControls();
         }
-        // IMPORTANT: The alert display logic is intentionally removed from here.
-        // It is handled once on page load in UIManager.init().
+        // Always ensure outline controls are present and regenerate content on changes
+        // This covers new messages, and for Gemini, scrolling up to load more content.
+        UIManager.addOutlineControls();
       });
-      observer.observe(document.body, { childList: true, subtree: true });
+
+      // Observe a broad area that includes chat messages and where new messages are added
+      const chatContainerSelector = CHATGPT_HOSTNAMES.some((h) =>
+        window.location.hostname.includes(h)
+      )
+        ? "main" // ChatGPT's main content area
+        : "#__next"; // Gemini's root container, or a more specific chat area if found
+
+      const targetNode =
+        document.querySelector(chatContainerSelector) || document.body;
+
+      observer.observe(targetNode, {
+        childList: true,
+        subtree: true,
+        attributes: false,
+      });
+
+      // Additionally, for Gemini, listen for scroll events on the window or a specific scrollable div
+      // if MutationObserver isn't sufficient for detecting all content loads.
+      if (
+        GEMINI_HOSTNAMES.some((host) => window.location.hostname.includes(host))
+      ) {
+        let scrollTimeout;
+        window.addEventListener(
+          "scroll",
+          () => {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+              // Only regenerate if current data count is less than actual count (implies more loaded)
+              const newConversationData =
+                ChatExporter.extractGeminiConversationData(document);
+              if (
+                newConversationData &&
+                ChatExporter._currentConversationData &&
+                newConversationData.messages.length >
+                  ChatExporter._currentConversationData.messages.length
+              ) {
+                UIManager.addOutlineControls(); // Regenerate outline
+              }
+            }, 500); // Debounce scroll events
+          },
+          true
+        ); // Use capture phase to ensure it works
+      }
     },
 
     /**
      * Initializes the UI components by adding controls and setting up the observer.
      */
     init() {
+      // New: Read collapsed state from localStorage on init
+      const storedCollapsedState = localStorage.getItem(
+        OUTLINE_COLLAPSED_STATE_KEY
+      );
+      if (storedCollapsedState === "true") {
+        // Check for 'true' string
+        UIManager._outlineIsCollapsed = true;
+      } else {
+        UIManager._outlineIsCollapsed = false; // Default or if stored is 'false'
+      }
       // Add controls after DOM is ready
       if (
         document.readyState === "complete" ||
         document.readyState === "interactive"
       ) {
-        setTimeout(UIManager.addExportControls, DOM_READY_TIMEOUT);
+        setTimeout(() => {
+          UIManager.addExportControls();
+          UIManager.addOutlineControls(); // Add outline after buttons
+        }, DOM_READY_TIMEOUT);
       } else {
         window.addEventListener("DOMContentLoaded", () =>
-          setTimeout(UIManager.addExportControls, DOM_READY_TIMEOUT)
+          setTimeout(() => {
+            UIManager.addExportControls();
+            UIManager.addOutlineControls(); // Add outline after buttons
+          }, DOM_READY_TIMEOUT)
         );
       }
       UIManager.initObserver();
 
       // Show alert specifically for Gemini on initial load if not hidden
-      // This runs only once when the script is first executed on page load.
       if (
         GEMINI_HOSTNAMES.some((host) =>
           window.location.hostname.includes(host)

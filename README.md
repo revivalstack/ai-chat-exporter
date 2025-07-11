@@ -1,4 +1,4 @@
-# ChatGPT / Gemini AI Chat Exporter by RevivalStack (v2.0.0)
+# ChatGPT / Gemini AI Chat Exporter by RevivalStack (v2.2.0)
 
 **ChatGPT / Gemini AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from both **ChatGPT** and **Google Gemini** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
 
@@ -8,13 +8,20 @@
 
 - **Cross-Platform Support**: Export conversations seamlessly from both **ChatGPT** and **Google Gemini**.
 - **Markdown Conversion**: Converts your chat conversation into a properly and elegantly formatted Markdown, ensuring accurate rendering of text, code blocks, tables, and especially **correct newlines within list items**.
-- **Export Button**: A floating "Export Chat" button for easy downloading of the conversation as a `.md` or `.json` file.
-- **Table of Contents (TOC)**: Automatically generates a TOC linking to each message pair (user question + AI response).
-- **Back to Top**: Allows quick navigation through a "Back to Top" link after each AI response.
-- **YAML Front Matter**: Includes comprehensive metadata like thread name, message count, exporter version, export timestamp, and the original chat thread URL.
-- **Local Time Formatting**: Includes the exact local time when the conversation was exported.
-- **Turndown Integration**: Safely converts HTML content into Markdown using a customized [Turndown](https://github.com/mixmark-io/turndown) service.
+  - **Table of Contents (TOC)**: Automatically generates a TOC linking to each message pair (user question + AI response) within the Markdown export.
+  - **Back to Top**: Allows quick navigation through a "Back to Top" link after each AI response in the Markdown export.
+  - **YAML Front Matter**: Includes comprehensive metadata like thread name, message count, exporter version, export timestamp, and the original chat thread URL.
 - **JSON Export**: Option to export conversations as a structured JSON file, including message IDs, authors, and content.
+- **Export Button**: A floating "Export Chat" button for easy downloading of the conversation as a `.md` or `.json` file.
+- **Floating Chat Outline with Selective Export**: A new, collapsible floating panel that provides an outline of all questions and responses in the conversation. This allows for:
+
+  - **Easy Viewing & Navigation**: Quickly jump to any part of the conversation.
+  - **Selective Export**: Visually select specific messages or sections to include in your Markdown or JSON export, giving you granular control over the output.
+
+    ![chat outline](images/chatgpt-gemini-ai-exporter-chat-outline.png)
+
+- **Turndown Integration**: Safely converts HTML content into Markdown using a customized [Turndown](https://github.com/mixmark-io/turndown) service.
+- **Local Time Formatting**: Includes the exact local time when the conversation was exported.
 
 ## Installation
 
@@ -36,7 +43,7 @@
 
 ### via Greasy Fork
 
-[Greasy Fork script](https://greasyfork.org/en/scripts/541051-chatgpt-gemini-ai-chat-exporter-by-revivalstack)
+- [Greasy Fork script](https://greasyfork.org/en/scripts/541051-chatgpt-gemini-ai-chat-exporter-by-revivalstack)
 
 ## Export Format
 
@@ -52,9 +59,9 @@ The Markdown export includes:
 ---
 thread_name: "Chat with ChatGPT"
 message_count: 3
-exporter_version: "2.0.0"
-exported_at: "2025-06-27T14-45-00-UTC+0300"
-thread_url: "[https://chatgpt.com/c/](https://chatgpt.com/c/)..."
+exporter_version: "2.2.0"
+exported_at: "2025-07-07T14-47-00-UTC+0800"
+thread_url: "https://chatgpt.com/c/..."
 ---
 # Chat with ChatGPT
 
@@ -91,6 +98,10 @@ You're currently chatting with **AI using GPT-4o**, which is the latest and most
 ...
 
 ```
+
+## Future Enhancements (Planned)
+
+- **Search/Filter Function in Chat Outline**: Implement a search and filtering capability directly within the floating chat outline. This would allow users to quickly find specific questions or ai responses, further enhancing navigation and selective export for long conversations.
 
 ## License
 
