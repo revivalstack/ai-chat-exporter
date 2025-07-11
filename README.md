@@ -17,6 +17,7 @@
 
   - **Easy Viewing & Navigation**: Quickly jump to any part of the conversation.
   - **Selective Export**: Visually select specific messages or sections to include in your Markdown or JSON export, giving you granular control over the output.
+  - **Integrated Search**: Search for specific text or regular expressions (Regex) within user queries and AI responses. This significantly enhances navigation and selective export for long conversations. For a detailed guide on using regex, refer to the [Regex Search Guide](regex.md).
 
     ![chat outline](images/chatgpt-gemini-ai-exporter-chat-outline.png)
 
@@ -25,7 +26,7 @@
 
 ## Installation
 
-### via Tapermonkey
+### via Tampermonkey
 
 1.  Install **Tampermonkey** from the [official website](https://www.tampermonkey.net/).
 
@@ -97,12 +98,6 @@ You're currently chatting with **AI using GPT-4o**, which is the latest and most
 
 ...
 
-```
-
-## Future Enhancements (Planned)
-
-- **Search/Filter Function in Chat Outline**: Implement a search and filtering capability directly within the floating chat outline. This would allow users to quickly find specific questions or ai responses, further enhancing navigation and selective export for long conversations.
-
 ## License
 
 MIT License. See [LICENSE](https://github.com/revivalstack/ai-chat-exporter/blob/main/LICENSE) for more information.
@@ -116,3 +111,4 @@ _This was created with the assistance of chatgpt and google gemini._
 ---
 
 For issues or suggestions, please create an issue or submit a pull request on [GitHub](https://github.com/revivalstack/ai-chat-exporter).
+```

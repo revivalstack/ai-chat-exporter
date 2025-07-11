@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT / Gemini AI Chat Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
-// @version      2.2.0
+// @version      2.3.0
 // @description  Export your ChatGPT or Gemini conversation into a properly and elegantly formatted Markdown or JSON.
 // @author       Mic Mejia (Refactored by Google Gemini)
 // @homepage     https://github.com/micmejia
@@ -16,7 +16,7 @@
   "use strict";
 
   // --- Global Constants ---
-  const EXPORTER_VERSION = "2.2.0";
+  const EXPORTER_VERSION = "2.3.0";
   const EXPORT_CONTAINER_ID = "export-controls-container";
   const OUTLINE_CONTAINER_ID = "export-outline-container"; // ID for the outline div
   const DOM_READY_TIMEOUT = 1000;
@@ -88,13 +88,32 @@
     cursor: "pointer", // Indicates it's clickable to collapse/expand
   };
 
-  // New styles for the "Select all" section
+  // Styles for the "Select all" section
   const SELECT_ALL_CONTAINER_PROPS = {
     display: "flex",
     alignItems: "center",
     padding: "5px 0",
     marginBottom: "5px",
     borderBottom: "1px solid #eee",
+  };
+
+  // Styles for the search bar
+  const SEARCH_INPUT_PROPS = {
+    width: "calc(100% - 20px)", // Full width minus padding
+    padding: "6px 10px",
+    margin: "5px 0 10px 0",
+    border: "1px solid #ddd",
+    borderRadius: "4px",
+    fontSize: "12px",
+    fontFamily: FONT_STACK,
+  };
+
+  const NO_MATCH_MESSAGE_PROPS = {
+    textAlign: "center",
+    fontStyle: "italic",
+    fontWeight: "bold",
+    color: "#666",
+    padding: "10px 0",
   };
 
   const OUTLINE_ITEM_PROPS = {
@@ -868,7 +887,7 @@
 
     /**
      * Main export orchestrator. Extracts data, configures Turndown, and formats.
-     * This function now filters messages based on _selectedMessageIds.
+     * This function now filters messages based on _selectedMessageIds and visibility.
      * @param {string} format - The desired output format ('markdown' or 'json').
      */
     initiateExport(format) {
@@ -881,27 +900,44 @@
         return;
       }
 
-      // --- Refresh ChatExporter._selectedMessageIds from current UI state ---
+      // --- Refresh ChatExporter._selectedMessageIds from current UI state and visibility ---
       ChatExporter._selectedMessageIds.clear(); // Clear previous state
       const outlineContainer = document.querySelector(
         `#${OUTLINE_CONTAINER_ID}`
       );
       if (outlineContainer) {
-        const checkedCheckboxes = outlineContainer.querySelectorAll(
+        // Only consider checkboxes that are checked AND visible
+        const checkedVisibleCheckboxes = outlineContainer.querySelectorAll(
           ".outline-item-checkbox:checked"
-        );
-        checkedCheckboxes.forEach((cb) => {
-          if (cb.dataset.messageId) {
+        ); // This will only return visible ones if their parent `itemDiv` is hidden with `display:none` as `querySelectorAll` won't find them
+
+        checkedVisibleCheckboxes.forEach((cb) => {
+          // Ensure the parent element is actually visible before adding to selected
+          const parentItemDiv = cb.closest("div");
+          if (
+            parentItemDiv &&
+            window.getComputedStyle(parentItemDiv).display !== "none" &&
+            cb.dataset.messageId
+          ) {
             ChatExporter._selectedMessageIds.add(cb.dataset.messageId);
           }
         });
 
-        // Also, manually add AI responses that follow selected user messages.
-        // This logic is crucial because only user messages have checkboxes.
-        // Iterate through the raw conversation data to find associated AI responses.
+        // Also, manually add AI responses that follow selected *and visible* user messages.
+        const visibleUserMessageIds = new Set();
+        checkedVisibleCheckboxes.forEach((cb) => {
+          const parentItemDiv = cb.closest("div");
+          if (
+            parentItemDiv &&
+            window.getComputedStyle(parentItemDiv).display !== "none" &&
+            cb.dataset.messageId
+          ) {
+            visibleUserMessageIds.add(cb.dataset.messageId);
+          }
+        });
+
         rawConversationData.messages.forEach((msg, index) => {
           if (msg.author === "ai") {
-            // Find the preceding user message
             let prevUserMessageId = null;
             for (let i = index - 1; i >= 0; i--) {
               if (rawConversationData.messages[i].author === "user") {
@@ -911,7 +947,7 @@
             }
             if (
               prevUserMessageId &&
-              ChatExporter._selectedMessageIds.has(prevUserMessageId)
+              visibleUserMessageIds.has(prevUserMessageId)
             ) {
               ChatExporter._selectedMessageIds.add(msg.id);
             }
@@ -927,7 +963,7 @@
 
       if (filteredMessages.length === 0) {
         alert(
-          "No messages selected for export. Please check at least one question in the outline."
+          "No messages selected or visible for export. Please check at least one question in the outline or clear your search filter."
         );
         return;
       }
@@ -1096,7 +1132,7 @@
       const markdownButton = document.createElement("button");
       markdownButton.id = "export-markdown-btn";
       markdownButton.textContent = "⬇ Export MD";
-      markdownButton.title = `${EXPORT_BUTTON_TITLE_PREFIX} - Markdown`;
+      markdownButton.title = `${EXPORT_BUTTON_TITLE_PREFIX}: Export to Markdown`;
       Utils.applyStyles(markdownButton, BUTTON_BASE_PROPS);
       markdownButton.onclick = () => ChatExporter.initiateExport("markdown");
       container.appendChild(markdownButton);
@@ -1104,7 +1140,7 @@
       const jsonButton = document.createElement("button");
       jsonButton.id = "export-json-btn";
       jsonButton.textContent = "⬇ JSON";
-      jsonButton.title = `${EXPORT_BUTTON_TITLE_PREFIX} - JSON`;
+      jsonButton.title = `${EXPORT_BUTTON_TITLE_PREFIX}: Export to JSON`;
       Utils.applyStyles(jsonButton, {
         ...BUTTON_BASE_PROPS,
         ...BUTTON_SPACING_PROPS,
@@ -1244,6 +1280,22 @@
       selectAllContainer.appendChild(selectAllLabel); // Append label here, content set later
       outlineContainer.appendChild(selectAllContainer);
 
+      // Search Bar
+      const searchInput = document.createElement("input");
+      searchInput.type = "text";
+      searchInput.id = "outline-search-input";
+      searchInput.placeholder =
+        "Search text or regex in user queries & AI responses.";
+      Utils.applyStyles(searchInput, SEARCH_INPUT_PROPS);
+      outlineContainer.appendChild(searchInput);
+
+      const noMatchMessage = document.createElement("div");
+      noMatchMessage.id = "outline-no-match-message";
+      noMatchMessage.textContent = "Your search text didn't match any items";
+      Utils.applyStyles(noMatchMessage, NO_MATCH_MESSAGE_PROPS);
+      noMatchMessage.style.display = "none"; // Hidden by default
+      outlineContainer.appendChild(noMatchMessage);
+
       const hr = document.createElement("hr"); // Horizontal rule
       hr.style.cssText =
         "border: none; border-top: 1px solid #eee; margin: 5px 0;";
@@ -1259,25 +1311,27 @@
 
       let userQuestionCount = 0; // This will be 'y' (total items)
 
-      // // Define the helper function to update the count display
-      // const updateSelectedCountDisplay = () => {
-      //   // Only count checkboxes for user messages, which are the ones in the outline
-      //   const checkedCheckboxes = outlineContainer.querySelectorAll(
-      //     ".outline-item-checkbox:checked"
-      //   );
-      //   const totalUserMessages = userQuestionCount; // 'y'
-      //   const selectedUserMessages = checkedCheckboxes.length; // 'x'
-      //   selectAllLabel.innerHTML = `<strong>Selected items to export: ${selectedUserMessages} out of ${totalUserMessages}</strong>`;
-      // };
-
-      // Define the helper function to update the count display
       const updateSelectedCountDisplay = () => {
-        // Only count checkboxes for user messages, which are the ones in the outline
-        const checkedCheckboxes = outlineContainer.querySelectorAll(
-          ".outline-item-checkbox:checked"
-        );
         const totalUserMessages = userQuestionCount; // 'y'
-        const selectedUserMessages = checkedCheckboxes.length; // 'x'
+        let selectedAndVisibleMessages = 0;
+
+        // Only count if the outline is not collapsed
+        if (!UIManager._outlineIsCollapsed) {
+          const allCheckboxes = outlineContainer.querySelectorAll(
+            ".outline-item-checkbox"
+          );
+          allCheckboxes.forEach((checkbox) => {
+            // Check if the checkbox is checked AND its parent div is visible due to search filter
+            const parentItemDiv = checkbox.closest("div");
+            if (
+              checkbox.checked &&
+              parentItemDiv &&
+              window.getComputedStyle(parentItemDiv).display !== "none"
+            ) {
+              selectedAndVisibleMessages++;
+            }
+          });
+        }
 
         // Clear existing content safely
         while (selectAllLabel.firstChild) {
@@ -1287,10 +1341,10 @@
         // Create a strong element for bold text
         const strongElement = document.createElement("strong");
         strongElement.appendChild(
-          document.createTextNode("Selected items to export:  ")
+          document.createTextNode("Items to export:  ")
         );
         strongElement.appendChild(
-          document.createTextNode(selectedUserMessages.toString())
+          document.createTextNode(selectedAndVisibleMessages.toString())
         );
         strongElement.appendChild(document.createTextNode(" out of "));
         strongElement.appendChild(
@@ -1300,11 +1354,15 @@
         selectAllLabel.appendChild(strongElement);
       };
 
-      ChatExporter._currentConversationData.messages.forEach((msg) => {
+      // Store references to the actual itemDiv elements for easy access during search
+      const outlineItemElements = new Map(); // Map<messageId, itemDiv>
+
+      ChatExporter._currentConversationData.messages.forEach((msg, index) => {
         if (msg.author === "user") {
           userQuestionCount++; // Increment 'y'
           const itemDiv = document.createElement("div");
           Utils.applyStyles(itemDiv, OUTLINE_ITEM_PROPS);
+          itemDiv.dataset.userMessageId = msg.id; // Store user message ID for search lookup
 
           const checkbox = document.createElement("input");
           checkbox.type = "checkbox";
@@ -1314,10 +1372,15 @@
           Utils.applyStyles(checkbox, OUTLINE_CHECKBOX_PROPS);
           checkbox.onchange = (e) => {
             // Update master checkbox state based on individual checkboxes
-            const allChecked = Array.from(
-              outlineContainer.querySelectorAll(".outline-item-checkbox")
-            ).every((cb) => cb.checked);
-            masterCheckbox.checked = allChecked;
+            const allVisibleCheckboxes = Array.from(
+              outlineContainer.querySelectorAll(
+                ".outline-item-checkbox:not([style*='display: none'])"
+              )
+            );
+            const allVisibleChecked = allVisibleCheckboxes.every(
+              (cb) => cb.checked
+            );
+            masterCheckbox.checked = allVisibleChecked;
             updateSelectedCountDisplay(); // Update count on individual checkbox change
           };
           itemDiv.appendChild(checkbox);
@@ -1361,6 +1424,7 @@
           itemDiv.appendChild(itemText);
 
           messageListDiv.appendChild(itemDiv);
+          outlineItemElements.set(msg.id, itemDiv);
 
           // Add to selected IDs by default (will be refreshed on export anyway)
           ChatExporter._selectedMessageIds.add(msg.id);
@@ -1386,10 +1450,11 @@
       // Now set the master checkbox onchange after userQuestionCount is final
       masterCheckbox.onchange = (e) => {
         const isChecked = e.target.checked;
-        const checkboxes = outlineContainer.querySelectorAll(
-          ".outline-item-checkbox"
+        // Only toggle visible checkboxes
+        const visibleCheckboxes = outlineContainer.querySelectorAll(
+          ".outline-item-checkbox:not([style*='display: none'])"
         );
-        checkboxes.forEach((cb) => {
+        visibleCheckboxes.forEach((cb) => {
           cb.checked = isChecked;
         });
         updateSelectedCountDisplay(); // Update count on master checkbox change
@@ -1401,15 +1466,125 @@
       // This call is now placed AFTER messageListDiv (containing all checkboxes) is appended to outlineContainer.
       updateSelectedCountDisplay();
 
+      // --- Search Bar Logic ---
+      searchInput.oninput = () => {
+        const searchText = searchInput.value.trim(); // Get the raw input text
+        let anyMatchFound = false;
+        let searchRegex;
+        let regexError = false;
+
+        // Reset previous error message and style
+        noMatchMessage.textContent = "Your search text didn't match any items";
+        noMatchMessage.style.color = "#7e7e7e"; // Default color
+
+        if (searchText === "") {
+          // If search text is empty, no regex is needed, all items will be shown
+        } else {
+          try {
+            // Create a RegExp object from the search input.
+            // The 'i' flag is added by default for case-insensitive search.
+            // Users can still specify other flags (e.g., /pattern/gi) directly in the input.
+            searchRegex = new RegExp(searchText, "i");
+          } catch (e) {
+            regexError = true;
+            // Display an error message for invalid regex
+            noMatchMessage.textContent = `Invalid regex: ${e.message}`;
+            noMatchMessage.style.color = "red"; // Make error message red
+            noMatchMessage.style.display = "block";
+            messageListDiv.style.display = "none";
+
+            // Hide all outline items if there's a regex error
+            outlineItemElements.forEach((itemDiv) => {
+              itemDiv.style.display = "none";
+            });
+            masterCheckbox.checked = false; // No valid visible items
+            updateSelectedCountDisplay(); // Update the count display
+            return; // Exit the function early if regex is invalid
+          }
+        }
+
+        const messages = ChatExporter._currentConversationData.messages;
+        const userMessageMap = new Map();
+
+        // Group user messages with their immediate AI responses
+        for (let i = 0; i < messages.length; i++) {
+          const msg = messages[i];
+          if (msg.author === "user") {
+            const userMsg = msg;
+            let aiMsg = null;
+            if (i + 1 < messages.length && messages[i + 1].author === "ai") {
+              aiMsg = messages[i + 1];
+            }
+            userMessageMap.set(userMsg.id, { user: userMsg, ai: aiMsg });
+          }
+        }
+
+        outlineItemElements.forEach((itemDiv, userMsgId) => {
+          const userAiPair = userMessageMap.get(userMsgId);
+          let match = false;
+
+          if (userAiPair) {
+            const userContent = userAiPair.user.contentText;
+            const aiContent = userAiPair.ai ? userAiPair.ai.contentText : "";
+
+            if (searchText === "") {
+              match = true; // If search box is empty, consider it a match (show all)
+            } else if (searchRegex) {
+              // Use regex.test() for matching against content
+              if (
+                searchRegex.test(userContent) ||
+                searchRegex.test(aiContent)
+              ) {
+                match = true;
+              }
+            }
+          }
+
+          if (match) {
+            itemDiv.style.display = "flex";
+            anyMatchFound = true;
+          } else {
+            itemDiv.style.display = "none";
+          }
+        });
+
+        // Show/hide no match message and adjust message list visibility
+        if (searchText !== "" && !anyMatchFound && !regexError) {
+          noMatchMessage.style.display = "block";
+          messageListDiv.style.display = "none";
+        } else if (searchText === "" || anyMatchFound) {
+          noMatchMessage.style.display = "none";
+          if (!UIManager._outlineIsCollapsed) {
+            // Only show message list if outline is expanded
+            messageListDiv.style.display = "block";
+          }
+        }
+
+        // After filtering, update master checkbox and count display based on visible items
+        const visibleCheckboxes = outlineContainer.querySelectorAll(
+          ".outline-item-checkbox:not([style*='display: none'])"
+        );
+        const allVisibleChecked =
+          visibleCheckboxes.length > 0 &&
+          Array.from(visibleCheckboxes).every((cb) => cb.checked);
+        masterCheckbox.checked = allVisibleChecked;
+        updateSelectedCountDisplay();
+      };
+      s;
+      // --- End Search Bar Logic ---
+
       // Ensure visibility based on collapse state
       if (UIManager._outlineIsCollapsed) {
         selectAllContainer.style.display = "none";
+        searchInput.style.display = "none";
+        noMatchMessage.style.display = "none";
         hr.style.display = "none";
         messageListDiv.style.display = "none";
       } else {
         selectAllContainer.style.display = "flex";
+        searchInput.style.display = "block";
+        // noMatchMessage and messageListDiv display will be handled by searchInput.oninput
         hr.style.display = "block";
-        messageListDiv.style.display = "block";
       }
     },
 
@@ -1430,6 +1605,10 @@
       const selectAllContainer = document.querySelector(
         "#outline-select-all-container"
       );
+      const searchInput = document.querySelector("#outline-search-input");
+      const noMatchMessage = document.querySelector(
+        "#outline-no-match-message"
+      );
       const hr = outlineContainer.querySelector("hr");
       const messageListDiv = document.querySelector("#outline-message-list");
       const toggleButton = document.querySelector("#outline-toggle-btn");
@@ -1440,14 +1619,35 @@
           ...OUTLINE_CONTAINER_COLLAPSED_PROPS,
         });
         if (selectAllContainer) selectAllContainer.style.display = "none";
+        if (searchInput) searchInput.style.display = "none";
+        if (noMatchMessage) noMatchMessage.style.display = "none";
         if (hr) hr.style.display = "none";
         if (messageListDiv) messageListDiv.style.display = "none";
         if (toggleButton) toggleButton.textContent = "▲";
       } else {
         Utils.applyStyles(outlineContainer, OUTLINE_CONTAINER_PROPS);
         if (selectAllContainer) selectAllContainer.style.display = "flex";
+        if (searchInput) searchInput.style.display = "block";
+        // noMatchMessage and messageListDiv display depend on search state, not just collapse
         if (hr) hr.style.display = "block";
-        if (messageListDiv) messageListDiv.style.display = "block";
+        // Trigger a re-evaluation of search filter if it was active
+        const currentSearchText = searchInput
+          ? searchInput.value.toLowerCase().trim()
+          : "";
+        if (currentSearchText !== "") {
+          searchInput.dispatchEvent(new Event("input")); // Re-run search filter
+        } else {
+          // If no search text, ensure all messages are visible
+          if (messageListDiv) messageListDiv.style.display = "block";
+          const allItems = outlineContainer.querySelectorAll(
+            ".outline-item-checkbox"
+          );
+          allItems.forEach((cb) => {
+            const parentDiv = cb.closest("div");
+            if (parentDiv) parentDiv.style.display = "flex";
+          });
+          if (noMatchMessage) noMatchMessage.style.display = "none";
+        }
         if (toggleButton) toggleButton.textContent = "▼";
       }
     },
