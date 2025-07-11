@@ -1,3 +1,9 @@
+## 2.2.0 (2025-07-11)
+
+### Feat
+
+- add chat outline for easier viewing and navigation and export selection
+
 ## 2.1.1 (2025-06-30)
 
 ### Fix
