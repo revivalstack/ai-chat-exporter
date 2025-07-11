@@ -97,6 +97,7 @@ GPT-4 can answer a variety of questions, though it may not always provide perfec
 You're currently chatting with **AI using GPT-4o**, which is the latest and most advanced model as of June 2025.
 
 ...
+```
 
 ## License
 
@@ -111,4 +112,3 @@ _This was created with the assistance of chatgpt and google gemini._
 ---
 
 For issues or suggestions, please create an issue or submit a pull request on [GitHub](https://github.com/revivalstack/ai-chat-exporter).
-```
