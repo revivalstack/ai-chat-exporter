@@ -1,3 +1,9 @@
+## 2.3.0 (2025-07-11)
+
+### Feat
+
+- add regex search to chat outline to filter user queries and ai responses
+
 ## 2.2.0 (2025-07-11)
 
 ### Feat
