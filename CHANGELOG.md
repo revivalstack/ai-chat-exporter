@@ -1,3 +1,9 @@
+## 2.4.0 (2025-07-12)
+
+### Feat
+
+- use more common field ids in markdown yaml and json header fields
+
 ## 2.3.0 (2025-07-11)
 
 ### Feat
