@@ -1,3 +1,9 @@
+## 2.4.1 (2025-07-12)
+
+### Fix
+
+- **ai-chat-exporter.user.js**: remove `s;` in the script
+
 ## 2.4.0 (2025-07-12)
 
 ### Feat
