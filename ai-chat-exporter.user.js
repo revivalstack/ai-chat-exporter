@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT / Gemini AI Chat Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
-// @version      2.4.0
+// @version      2.4.1
 // @description  Export your ChatGPT or Gemini conversation into a properly and elegantly formatted Markdown or JSON.
 // @author       Mic Mejia (Refactored by Google Gemini)
 // @homepage     https://github.com/micmejia
@@ -16,7 +16,7 @@
   "use strict";
 
   // --- Global Constants ---
-  const EXPORTER_VERSION = "2.4.0";
+  const EXPORTER_VERSION = "2.4.1";
   const EXPORT_CONTAINER_ID = "export-controls-container";
   const OUTLINE_CONTAINER_ID = "export-outline-container"; // ID for the outline div
   const DOM_READY_TIMEOUT = 1000;
@@ -1570,7 +1570,6 @@
         masterCheckbox.checked = allVisibleChecked;
         updateSelectedCountDisplay();
       };
-      s;
       // --- End Search Bar Logic ---
 
       // Ensure visibility based on collapse state
