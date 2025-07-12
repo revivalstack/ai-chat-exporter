@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT / Gemini AI Chat Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
-// @version      2.3.0
+// @version      2.4.0
 // @description  Export your ChatGPT or Gemini conversation into a properly and elegantly formatted Markdown or JSON.
 // @author       Mic Mejia (Refactored by Google Gemini)
 // @homepage     https://github.com/micmejia
@@ -16,7 +16,7 @@
   "use strict";
 
   // --- Global Constants ---
-  const EXPORTER_VERSION = "2.3.0";
+  const EXPORTER_VERSION = "2.4.0";
   const EXPORT_CONTAINER_ID = "export-controls-container";
   const OUTLINE_CONTAINER_ID = "export-outline-container"; // ID for the outline div
   const DOM_READY_TIMEOUT = 1000;
@@ -827,7 +827,7 @@
 
       const localTime = Utils.formatLocalTime(conversationData.exportedAt);
 
-      const yaml = `---\nthread_name: ${conversationData.title}\nmessage_count: ${conversationData.messageCount}\nexporter_version: ${EXPORTER_VERSION}\nexported_at: ${localTime}\nthread_url: ${conversationData.threadUrl}\n---\n`;
+      const yaml = `---\ntitle: ${conversationData.title}\ncount: ${conversationData.messageCount}\nexporter: ${EXPORTER_VERSION}\ndate: ${localTime}\nurl: ${conversationData.threadUrl}\n---\n`;
       const tocBlock = `## Table of Contents\n\n${toc.trim()}\n\n`;
 
       const finalOutput =
@@ -857,11 +857,11 @@
      */
     formatToJSON(conversationData) {
       const jsonOutput = {
-        thread_name: conversationData.title,
-        message_count: conversationData.messageCount,
-        exporter_version: EXPORTER_VERSION,
-        exported_at: conversationData.exportedAt.toISOString(),
-        thread_url: conversationData.threadUrl,
+        title: conversationData.title,
+        count: conversationData.messageCount,
+        exporter: EXPORTER_VERSION,
+        date: conversationData.exportedAt.toISOString(),
+        url: conversationData.threadUrl,
         messages: conversationData.messages.map((msg) => ({
           id: msg.id.split("-").slice(0, 2).join("-"), // Keep the ID for reference in JSON
           author: msg.author,

@@ -1,9 +1,9 @@
 ---
-thread_name: "Chat with ChatGPT"
-message_count: 3
-exporter_version: "2.0.0"
-exported_at: "2025-06-27T14-45-00-UTC+0300"
-thread_url: "[https://chatgpt.com/c/](https://chatgpt.com/c/)..."
+title: Chat with ChatGPT
+count: 3
+exporter: 2.4.0
+date: 2025-07-12T14-47-00-UTC+0800
+url: https://chatgpt.com/c/...
 ---
 
 # Chat with GPT-4
