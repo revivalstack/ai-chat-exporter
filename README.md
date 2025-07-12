@@ -1,4 +1,4 @@
-# ChatGPT / Gemini AI Chat Exporter by RevivalStack (v2.2.0)
+# ChatGPT / Gemini AI Chat Exporter by RevivalStack (v2.4.1)
 
 **ChatGPT / Gemini AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from both **ChatGPT** and **Google Gemini** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
 
