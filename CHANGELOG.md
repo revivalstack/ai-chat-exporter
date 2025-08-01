@@ -1,3 +1,9 @@
+## 2.6.0 (2025-08-01)
+
+### Feat
+
+- add support for claude chat
+
 ## 2.5.0 (2025-08-01)
 
 ### Feat

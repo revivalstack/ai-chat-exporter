@@ -2,7 +2,7 @@
 name = "cz_conventional_commits"
 tag_format = "$version"
 version_scheme = "semver"
-version = "2.5.0"
+version = "2.6.0"
 update_changelog_on_bump = true
 major_version_zero = false
 annotated_tag = true
