@@ -1,3 +1,9 @@
+## 2.5.0 (2025-08-01)
+
+### Feat
+
+- gemini auto-scroll, customizable filename format, tags support and better ui
+
 ## 2.4.1 (2025-07-12)
 
 ### Fix
