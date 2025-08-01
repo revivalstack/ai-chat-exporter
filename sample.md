@@ -1,8 +1,10 @@
 ---
 title: Chat with ChatGPT
+tags: [testchat, docs]
+author: chatgpt
 count: 3
-exporter: 2.4.0
-date: 2025-07-12T14-47-00-UTC+0800
+exporter: 2.5.0
+date: 2025-07-31T17-47-00+0800
 url: https://chatgpt.com/c/...
 ---
 

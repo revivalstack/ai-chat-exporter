@@ -1,8 +1,25 @@
-# ChatGPT / Gemini AI Chat Exporter by RevivalStack (v2.4.1)
+# ChatGPT / Gemini AI Chat Exporter by RevivalStack (v2.5.0)
 
 **ChatGPT / Gemini AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from both **ChatGPT** and **Google Gemini** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
 
 ![ChatGPT / Gemini AI Chat Exporter](images/chatgpt-gemini-ai-exporter.png)
+
+## What's New in v2.5.0?
+
+This version introduces significant enhancements focused on customization, output quality, and UI polish.
+
+- **Customizable Filename Format**: A new "⚙️ Settings" button allows you to configure your preferred filename format using a variety of placeholders:
+  - `{platform}`: The platform name (e.g., `chatgpt` or `gemini`).
+  - `{title}`: The cleaned chat title.
+  - `{timestamp}`: The ISO 8601 timestamp (UTC).
+  - `{timestampLocal}`: The local timestamp with timezone offset.
+  - `{tags}`: A hyphen-separated list of all tags found in the title.
+  - `{tag1}` through `{tag9}`: Individual tags for more granular control.
+    ![Settings: Filename Format](images/chatgpt-gemini-ai-exporter-settings-filename-format.png)
+- **Intelligent Title & Tag Parsing**: The script now automatically extracts tags (e.g., `#project-name`) from chat titles and cleans the title, while intelligently ignoring numeric tags (e.g., `#250731`) that are often used as dates. For example, you can name your chat as `#project #250731 #teamA Review of AI technologies`. This will produce a title `Review of AI technologies` and tags `[project, teamA]`.
+- **Improved Gemini Chat Loading**: The exporter will automatically scroll up the page to load older gemini chat messages.
+
+  ![v2.5.0 Changes](images/chatgpt-gemini-ai-exporter-v2.5.0.png)
 
 ## Features
 
@@ -59,9 +76,11 @@ The Markdown export includes:
 ```yaml
 ---
 title: Chat with ChatGPT
+tags: [testchat, docs]
+author: chatgpt
 count: 3
-exporter: 2.4.0
-date: 2025-07-12T14-47-00-UTC+0800
+exporter: 2.5.0
+date: 2025-07-31T17-47-00+0800
 url: https://chatgpt.com/c/...
 ---
 # Chat with ChatGPT

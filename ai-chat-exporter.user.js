@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT / Gemini AI Chat Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
-// @version      2.4.1
+// @version      2.5.0
 // @description  Export your ChatGPT or Gemini conversation into a properly and elegantly formatted Markdown or JSON.
 // @author       Mic Mejia (Refactored by Google Gemini)
 // @homepage     https://github.com/micmejia
@@ -9,14 +9,15 @@
 // @match        https://chat.openai.com/*
 // @match        https://chatgpt.com/*
 // @match        https://gemini.google.com/*
-// @grant        none
+// @grant        GM_getValue
+// @grant        GM_setValue
 // ==/UserScript==
 
 (function () {
   "use strict";
 
   // --- Global Constants ---
-  const EXPORTER_VERSION = "2.4.1";
+  const EXPORTER_VERSION = "2.5.0";
   const EXPORT_CONTAINER_ID = "export-controls-container";
   const OUTLINE_CONTAINER_ID = "export-outline-container"; // ID for the outline div
   const DOM_READY_TIMEOUT = 1000;
@@ -25,6 +26,10 @@
   const HIDE_ALERT_FLAG = "exporter_hide_scroll_alert"; // Local Storage flag
   const ALERT_AUTO_CLOSE_DURATION = 30000; // 30 seconds
   const OUTLINE_COLLAPSED_STATE_KEY = "outline_is_collapsed"; // Local Storage key for collapsed state
+  const AUTOSCROLL_INITIAL_DELAY = 2000; // Initial delay before starting auto-scroll (X seconds)
+  const OUTLINE_TITLE_ID = "ai-chat-exporter-outline-title";
+  const OUTPUT_FILE_FORMAT_DEFAULT = "{platform}_{title}_{timestampLocal}";
+  const GM_OUTPUT_FILE_FORMAT = "aiChatExporter_fileFormat";
 
   // --- Font Stack for UI Elements ---
   const FONT_STACK = `system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"`;
@@ -56,8 +61,7 @@
     borderRadius: "8px",
     backgroundColor: "#fff", // White background
     color: "#333", // Dark text
-    maxHeight: "250px", // Max height for scrollable content
-    overflowY: "auto", // Enable vertical scrolling
+    maxHeight: "350px", // Max height for scrollable content
     width: "300px", // Fixed width
     padding: "10px",
     border: "1px solid #ddd",
@@ -86,6 +90,16 @@
     borderBottom: "1px solid #eee",
     fontWeight: "bold",
     cursor: "pointer", // Indicates it's clickable to collapse/expand
+  };
+
+  const OUTLINE_TITLE_PROPS = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "5px",
+    paddingBottom: "5px",
+    borderBottom: "1px solid #eee",
+    wordWrap: "break-word" /* Ensures long titles wrap */,
   };
 
   // Styles for the "Select all" section
@@ -212,8 +226,8 @@
   const CHATGPT_BUTTON_SPECIFIC_CLASS = "text-sm";
 
   const GEMINI_HOSTNAMES = ["gemini.google.com"];
+  const GEMINI_TITLE_REPLACE_TEXT = "Gemini - ";
   const GEMINI_MESSAGE_ITEM_SELECTOR = "user-query, model-response";
-  const GEMINI_TITLE_REPLACE_TEXT = " - Gemini";
   const GEMINI_SIDEBAR_ACTIVE_CHAT_SELECTOR =
     'div[data-test-id="conversation"].selected .conversation-title';
 
@@ -225,6 +239,13 @@
   // Parents of <p> tags where newlines should be suppressed or handled differently
   // LI is handled separately in the paragraph rule for single newlines.
   const PARAGRAPH_FILTER_PARENT_NODES = ["TH", "TR"];
+
+  // Styles for the scrollable message list div
+  const MESSAGE_LIST_PROPS = {
+    overflowY: "auto", // Enable vertical scrolling for this specific div
+    flexGrow: "1", // Allow it to grow and take available space
+    paddingRight: "5px", // Add some padding for scrollbar visibility
+  };
 
   // --- Inlined Turndown.js (v7.1.2) - BEGIN ---
   // Customized TurndownService to handle specific chat DOM structures
@@ -526,12 +547,19 @@
      * @param {string} str The input text.
      * @returns {string} The slugified string.
      */
-    slugify(str) {
+    slugify(str, toLowerCase = true, maxLength = 120) {
+      if (typeof str !== "string") {
+        return "invalid-filename"; // Handle non-string input gracefully
+      }
+      if (toLowerCase) {
+        str = str.toLocaleLowerCase();
+      }
       return str
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/[^a-zA-Z0-9\-_.+]+/g, "-")
+        .replace(/-+/g, "-")
         .replace(/^-|-$/g, "")
-        .slice(0, 50);
+        .replace(/^$/, "invalid-filename")
+        .slice(0, maxLength);
     },
 
     /**
@@ -550,7 +578,7 @@
         d.getDate()
       )}T${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(
         d.getSeconds()
-      )}-UTC${sign}${offsetHours}${offsetMinutes}`;
+      )}${sign}${offsetHours}${offsetMinutes}`;
     },
 
     /**
@@ -598,6 +626,122 @@
         element.style[prop] = styles[prop];
       }
     },
+
+    /**
+     * Formats a filename string based on provided format and chat data.
+     *
+     * @param {string} format - The format string with placeholders (e.g., "{platform}_{tag1}_{title}_{timestamp}.md").
+     * @param {string} title - The cleaned title of the chat.
+     * @param {string[]} tags - An array of tags for the chat.
+     * @param {string} ext - The file extenstion without leading dot.
+     * @returns {string} The formatted filename.
+     */
+    formatFileName(format, title, tags, ext) {
+      // Ensure tags is an array
+      const tagsArray = Array.isArray(tags) ? tags : [];
+
+      const replacements = {
+        "{exporter}": EXPORTER_VERSION,
+        "{platform}": Utils.getPlatformPrefix(),
+        "{title}": title.slice(0, 70).toLocaleLowerCase(),
+        "{timestamp}": new Date().toISOString(),
+        "{timestampLocal}": Utils.formatLocalTime(new Date()),
+        "{tags}": tagsArray.join("-").toLocaleLowerCase(), // Comma separated string of all tags
+      };
+
+      // Add individual tags (tag1 to tag9)
+      for (let i = 0; i < 9; i++) {
+        const tagName = `{tag${i + 1}}`;
+        replacements[tagName] = tagsArray[i]
+          ? tagsArray[i].toLocaleLowerCase()
+          : ""; // Use tag if it exists, otherwise empty string
+      }
+
+      let formattedFilename = format;
+      for (const placeholder in replacements) {
+        if (replacements.hasOwnProperty(placeholder)) {
+          // Replace all occurrences of the placeholder with its value
+          formattedFilename = formattedFilename
+            .split(placeholder)
+            .join(replacements[placeholder]);
+        }
+      }
+
+      return Utils.slugify(`${formattedFilename}.${ext}`, false);
+    },
+
+    /**
+     * Determines the current AI chat platform based on the hostname.
+     *
+     * @returns {string} The lowercase platform prefix (e.g., "chatgpt", "gemini", "unknown").
+     */
+    getPlatformPrefix() {
+      // Hardcoded constants for known platform hostnames
+      const PLATFORM_HOSTNAMES = {
+        chatgpt: CHATGPT_HOSTNAMES,
+        gemini: GEMINI_HOSTNAMES,
+      };
+
+      const currentHostname = window.location.hostname;
+
+      for (const platform in PLATFORM_HOSTNAMES) {
+        if (PLATFORM_HOSTNAMES.hasOwnProperty(platform)) {
+          const hostnames = PLATFORM_HOSTNAMES[platform];
+          if (hostnames.some((host) => currentHostname.includes(host))) {
+            // Return the platform key (which is already lowercase)
+            return platform;
+          }
+        }
+      }
+
+      // If no match is found, return a default/unknown platform
+      return "unknown";
+    },
+
+    /**
+     * Parses a raw chat title to extract tags and the cleaned main title.
+     * Tags starting with '#' followed by one or more digits are ignored.
+     *
+     * @param {string} rawTitle - The raw chat title string, e.g., "#aice #plan #tech #50731 Browser Storage Options Comparison".
+     * @returns {{title: string, tags: string[]}} An object containing the cleaned title and an array of extracted tags.
+     */
+    parseChatTitleAndTags(rawTitle) {
+      const tags = [];
+      let cleanedTitle = rawTitle.trim();
+
+      // Regular expression to find tags at the beginning of the string:
+      // # (hash)
+      // \S+ (one or more non-whitespace characters)
+      // ^ (start of string)
+      // (\s*#\S+)* (zero or more occurrences of space and then a tag)
+      const tagRegex = /(^|\s+)#(\S+)/g;
+      let match;
+
+      // Iterate over all matches to extract tags
+      while ((match = tagRegex.exec(cleanedTitle)) !== null) {
+        const fullTag = match[0].trim(); // e.g., "#aice", " #plan"
+        const tagName = match[2]; // e.g., "aice", "plan"
+
+        // Check if the tag is numeric (e.g., #50731)
+        if (!/^\d+$/.test(tagName)) {
+          tags.push(tagName);
+        }
+      }
+
+      // Remove all tags from the title string, including the numeric ones,
+      // to get the final cleaned title.
+      // This regex matches a hash, followed by one or more non-whitespace characters,
+      // optionally followed by a space, only if it appears at the beginning or after a space.
+      cleanedTitle = cleanedTitle.replace(/(^|\s+)#\S+/g, " ").trim();
+
+      // Remove any extra spaces that might result from tag removal
+      cleanedTitle = cleanedTitle.replace(/\s+/g, " ").trim();
+
+      return {
+        title: cleanedTitle,
+        tags: tags,
+      };
+    },
   };
 
   // --- Core Export Logic ---
@@ -614,7 +758,7 @@
       const articles = [...doc.querySelectorAll(CHATGPT_ARTICLE_SELECTOR)];
       if (articles.length === 0) return null;
 
-      const title =
+      let title =
         doc.title.replace(CHATGPT_TITLE_REPLACE_TEXT, "").trim() ||
         DEFAULT_CHAT_TITLE;
       const messages = [];
@@ -659,8 +803,13 @@
         if (!isUser) chatIndex++;
       }
 
+      const _parsedTitle = Utils.parseChatTitleAndTags(title);
+
       return {
-        title: title,
+        _raw_title: title,
+        title: _parsedTitle.title,
+        tags: _parsedTitle.tags,
+        author: Utils.getPlatformPrefix(),
         messages: messages,
         messageCount: messages.filter((m) => m.author === "user").length, // Count user messages as questions
         exportedAt: new Date(),
@@ -688,25 +837,11 @@
       );
       if (sidebarActiveChatItem && sidebarActiveChatItem.textContent.trim()) {
         title = sidebarActiveChatItem.textContent.trim();
+      } else {
+        title = doc.title;
       }
-
-      const isGenericTitle = (t) =>
-        !t ||
-        t === DEFAULT_CHAT_TITLE ||
-        t.toLowerCase() === "new chat" ||
-        t.toLowerCase() === "untitled chat" ||
-        t.toLowerCase() === "gemini";
-
-      // Fallback to document title if sidebar title is not found or is generic
-      const docTitleCandidate = doc.title
-        .replace(GEMINI_TITLE_REPLACE_TEXT, "")
-        .trim();
-      if (
-        isGenericTitle(title) &&
-        docTitleCandidate &&
-        !isGenericTitle(docTitleCandidate)
-      ) {
-        title = docTitleCandidate;
+      if (title.startsWith(GEMINI_TITLE_REPLACE_TEXT)) {
+        title = title.replace(GEMINI_TITLE_REPLACE_TEXT, "").trim();
       }
 
       const messages = [];
@@ -745,9 +880,9 @@
         if (author === "ai") chatIndex++;
       }
 
-      // Final fallback to the first user message if title is still generic
+      // Final fallback to the first user message if title is still default
       if (
-        isGenericTitle(title) &&
+        title === DEFAULT_CHAT_TITLE &&
         messages.length > 0 &&
         messages[0].author === "user"
       ) {
@@ -768,13 +903,13 @@
         }
       }
 
-      // Ensure a title is always set and is not generic
-      if (isGenericTitle(title)) {
-        title = DEFAULT_CHAT_TITLE;
-      }
+      const _parsedTitle = Utils.parseChatTitleAndTags(title);
 
       return {
-        title: title,
+        _raw_title: title,
+        title: _parsedTitle.title,
+        tags: _parsedTitle.tags,
+        author: Utils.getPlatformPrefix(),
         messages: messages,
         messageCount: messages.filter((m) => m.author === "user").length, // Count user messages as questions
         exportedAt: new Date(),
@@ -827,7 +962,15 @@
 
       const localTime = Utils.formatLocalTime(conversationData.exportedAt);
 
-      const yaml = `---\ntitle: ${conversationData.title}\ncount: ${conversationData.messageCount}\nexporter: ${EXPORTER_VERSION}\ndate: ${localTime}\nurl: ${conversationData.threadUrl}\n---\n`;
+      const yaml = `---\ntitle: ${
+        conversationData.title
+      }\ntags: [${conversationData.tags.join(", ")}]\nauthor: ${
+        conversationData.author
+      }\ncount: ${
+        conversationData.messageCount
+      }\nexporter: ${EXPORTER_VERSION}\ndate: ${localTime}\nurl: ${
+        conversationData.threadUrl
+      }\n---\n`;
       const tocBlock = `## Table of Contents\n\n${toc.trim()}\n\n`;
 
       const finalOutput =
@@ -837,15 +980,17 @@
         content.trim() +
         "\n\n";
 
-      const platformPrefix = CHATGPT_HOSTNAMES.some((host) =>
-        window.location.hostname.includes(host)
-      )
-        ? "chatgpt"
-        : "gemini";
-      const fileName = `${platformPrefix}_${Utils.slugify(
-        conversationData.title
-      )}_${localTime}.md`;
+      // const platformPrefix = Utils.getPlatformPrefix();
+      // const fileName = `${platformPrefix}_${Utils.slugify(
+      //   conversationData.title
+      // )}_${localTime}.md`;
 
+      const fileName = Utils.formatFileName(
+        GM_getValue(GM_OUTPUT_FILE_FORMAT, OUTPUT_FILE_FORMAT_DEFAULT),
+        conversationData.title,
+        conversationData.tags,
+        "md"
+      );
       return { output: finalOutput, fileName: fileName };
     },
 
@@ -858,6 +1003,8 @@
     formatToJSON(conversationData) {
       const jsonOutput = {
         title: conversationData.title,
+        tags: conversationData.tags,
+        author: conversationData.author,
         count: conversationData.messageCount,
         exporter: EXPORTER_VERSION,
         date: conversationData.exportedAt.toISOString(),
@@ -869,15 +1016,18 @@
         })),
       };
 
-      const localTime = Utils.formatLocalTime(conversationData.exportedAt);
-      const platformPrefix = CHATGPT_HOSTNAMES.some((host) =>
-        window.location.hostname.includes(host)
-      )
-        ? "chatgpt"
-        : "gemini";
-      const fileName = `${platformPrefix}_${Utils.slugify(
-        conversationData.title
-      )}_${localTime}.json`;
+      // const localTime = Utils.formatLocalTime(conversationData.exportedAt);
+      // const platformPrefix = Utils.getPlatformPrefix();
+      // const fileName = `${platformPrefix}_${Utils.slugify(
+      //   conversationData.title
+      // )}_${localTime}.json`;
+
+      const fileName = Utils.formatFileName(
+        GM_getValue(GM_OUTPUT_FILE_FORMAT, OUTPUT_FILE_FORMAT_DEFAULT),
+        conversationData.title,
+        conversationData.tags,
+        "json"
+      );
 
       return {
         output: JSON.stringify(jsonOutput, null, 2),
@@ -1067,6 +1217,8 @@
      */
     alertTimeoutId: null,
     _outlineIsCollapsed: false, // State for the outline collapse
+    _lastProcessedChatUrl: null, // Track the last processed chat URL for Gemini
+    _initialListenersAttached: false, // Track if the URL change handlers are initialized
 
     /**
      * Determines the appropriate width for the alert based on the chat's content area.
@@ -1148,6 +1300,55 @@
       jsonButton.onclick = () => ChatExporter.initiateExport("json");
       container.appendChild(jsonButton);
 
+      // --- Settings Button (NEW) ---
+      const settingsButton = document.createElement("button");
+      settingsButton.className = "export-button-settings";
+      settingsButton.textContent = "⚙️";
+      settingsButton.title = `${EXPORT_BUTTON_TITLE_PREFIX}: ⚙️ Settings: Configure Filename Format`;
+      Utils.applyStyles(settingsButton, {
+        ...BUTTON_BASE_PROPS,
+        ...BUTTON_SPACING_PROPS,
+      });
+      settingsButton.addEventListener("click", () => {
+        const currentFormat = GM_getValue(
+          GM_OUTPUT_FILE_FORMAT,
+          OUTPUT_FILE_FORMAT_DEFAULT
+        );
+        const newFormat = window.prompt(
+          `+++++++  ${EXPORT_BUTTON_TITLE_PREFIX}  +++++++\n\n ` +
+            `ENTER NEW FILENAME FORMAT:\n` +
+            ` • sample1: {platform}__{tag1}__{title}__{timestampLocal}\n` +
+            ` • sample2: {tag1}__{title}-v{exporter}-{timestamp}\n` +
+            ` • current: ${currentFormat}\n\n` +
+            `valid placeholders: \n  ` +
+            `- {platform}              : e.g. chatgpt, gemini\n  ` +
+            `- {title}                      : title, with tags removed\n  ` +
+            `- {timestamp}          : YYYY-MM-DDTHH-mm-ss.sssZ\n  ` +
+            `- {timestampLocal}: YYYY-MM-DDTHH-mm-ss[+/-]HHMM\n  ` +
+            `- {tags}                     : all tags, hyphen-separated\n  ` +
+            `- {tag1}                     : 1st tag\n  ` +
+            `- {tag2}                     : 2nd tag\n  ` +
+            `  ...\n  ` +
+            `- {tag9}                     : 9th tag\n  ` +
+            `- {exporter}             : AI Chat Exporter version\n`,
+          currentFormat
+        );
+
+        if (newFormat !== null && newFormat !== currentFormat) {
+          GM_setValue(GM_OUTPUT_FILE_FORMAT, newFormat);
+          alert("Filename format updated successfully!");
+          console.log("New filename format saved:", newFormat);
+        } else if (newFormat === currentFormat) {
+          // User clicked OK but didn't change the value, or entered same value
+          console.log("Filename format not changed.");
+        } else {
+          // User clicked Cancel
+          console.log("Filename format update cancelled.");
+        }
+      });
+      container.appendChild(settingsButton);
+      // --- End Settings Button ---
+
       document.body.appendChild(container);
     },
 
@@ -1203,6 +1404,8 @@
       const hasDataChanged =
         !ChatExporter._currentConversationData || // No previous data
         !freshConversationData || // No new data
+        freshConversationData._raw_title !==
+          ChatExporter._currentConversationData._raw_title ||
         freshConversationData.messages.length !==
           ChatExporter._currentConversationData.messages.length ||
         (freshConversationData.messages.length > 0 &&
@@ -1251,9 +1454,9 @@
       headerDiv.title = `AI Chat Exporter v${EXPORTER_VERSION}`;
       headerDiv.onclick = UIManager.toggleOutlineCollapse; // Only this div handles collapse
 
-      const titleSpan = document.createElement("span");
-      titleSpan.textContent = "AI Chat Exporter: Chat Outline";
-      headerDiv.appendChild(titleSpan);
+      const headerSpan = document.createElement("span");
+      headerSpan.textContent = "AI Chat Exporter: Chat Outline";
+      headerDiv.appendChild(headerSpan);
 
       const toggleButton = document.createElement("button");
       toggleButton.id = "outline-toggle-btn";
@@ -1262,6 +1465,13 @@
       headerDiv.appendChild(toggleButton);
 
       outlineContainer.appendChild(headerDiv);
+
+      const titleDiv = document.createElement("div");
+      Utils.applyStyles(titleDiv, OUTLINE_TITLE_PROPS);
+      titleDiv.textContent = freshConversationData.title || DEFAULT_CHAT_TITLE;
+      titleDiv.title = "tags: " + freshConversationData.tags.join(", ");
+      titleDiv.id = OUTLINE_TITLE_ID;
+      outlineContainer.appendChild(titleDiv);
 
       // New: Select All checkbox and label section (below header)
       const selectAllContainer = document.createElement("div");
@@ -1304,10 +1514,7 @@
       // List of messages
       const messageListDiv = document.createElement("div");
       messageListDiv.id = "outline-message-list";
-      // Apply styles to hide when collapsed
-      if (UIManager._outlineIsCollapsed) {
-        messageListDiv.style.display = "none";
-      }
+      Utils.applyStyles(messageListDiv, MESSAGE_LIST_PROPS);
 
       let userQuestionCount = 0; // This will be 'y' (total items)
 
@@ -1556,6 +1763,7 @@
           noMatchMessage.style.display = "none";
           if (!UIManager._outlineIsCollapsed) {
             // Only show message list if outline is expanded
+            // Keep this as a fallback if messageListDiv display is not primarily controlled by flexGrow
             messageListDiv.style.display = "block";
           }
         }
@@ -1574,12 +1782,14 @@
 
       // Ensure visibility based on collapse state
       if (UIManager._outlineIsCollapsed) {
+        titleDiv.style.display = "none";
         selectAllContainer.style.display = "none";
         searchInput.style.display = "none";
         noMatchMessage.style.display = "none";
         hr.style.display = "none";
         messageListDiv.style.display = "none";
       } else {
+        titleDiv.style.display = "flex";
         selectAllContainer.style.display = "flex";
         searchInput.style.display = "block";
         // noMatchMessage and messageListDiv display will be handled by searchInput.oninput
@@ -1601,6 +1811,7 @@
       const outlineContainer = document.querySelector(
         `#${OUTLINE_CONTAINER_ID}`
       );
+      const titleDiv = document.querySelector(`#${OUTLINE_TITLE_ID}`);
       const selectAllContainer = document.querySelector(
         "#outline-select-all-container"
       );
@@ -1617,6 +1828,7 @@
           ...OUTLINE_CONTAINER_PROPS,
           ...OUTLINE_CONTAINER_COLLAPSED_PROPS,
         });
+        if (titleDiv) titleDiv.style.display = "none";
         if (selectAllContainer) selectAllContainer.style.display = "none";
         if (searchInput) searchInput.style.display = "none";
         if (noMatchMessage) noMatchMessage.style.display = "none";
@@ -1625,6 +1837,7 @@
         if (toggleButton) toggleButton.textContent = "▲";
       } else {
         Utils.applyStyles(outlineContainer, OUTLINE_CONTAINER_PROPS);
+        if (titleDiv) titleDiv.style.display = "flex";
         if (selectAllContainer) selectAllContainer.style.display = "flex";
         if (searchInput) searchInput.style.display = "block";
         // noMatchMessage and messageListDiv display depend on search state, not just collapse
@@ -1758,6 +1971,234 @@
     },
 
     /**
+     * Attempts to auto-scroll the Gemini conversation to the top to load all messages.
+     * This function uses an iterative approach to handle dynamic loading.
+     */
+    autoScrollToTop: async function () {
+      if (
+        !GEMINI_HOSTNAMES.some((host) =>
+          window.location.hostname.includes(host)
+        )
+      ) {
+        // console.log("autoScrollToTop: Not on a Gemini hostname. Returning early.");
+        return;
+      }
+
+      // Track the current URL to avoid re-scrolling the same chat repeatedly
+      const currentUrl = window.location.href;
+
+      // New: Check if we have already effectively started auto-scrolling for this URL.
+      // UIManager._lastProcessedChatUrl will be null initially, or explicitly reset by handleUrlChange for new URLs.
+      // It will be set to currentUrl *after* the initial message element is found.
+      if (UIManager._lastProcessedChatUrl === currentUrl) {
+        console.log(
+          "Auto-scroll already initiated or completed for this URL. Skipping."
+        );
+        return;
+      }
+
+      // console.log(`Auto-scroll triggered for new URL: ${currentUrl}`);
+
+      let scrollableElement =
+        document.querySelector('[data-test-id="chat-history-container"]') || // **PRIMARY TARGET (CONFIRMED BY LOGS)**
+        document.querySelector("#chat-history") || // Fallback to chat history div by ID
+        document.querySelector("main") || // Fallback to main element
+        document.documentElement; // Final fallback to the document's root element
+
+      if (!scrollableElement) {
+        // UIManager.showAlert(
+        //   "Error: Could not find chat scroll area. Auto-scroll failed."
+        // );
+        return;
+      }
+
+      // UIManager.showAlert(
+      //   "Auto-scrolling to load entire conversation... Please wait."
+      // );
+
+      const AUTOSCROLL_MAT_PROGRESS_BAR_POLL_INTERVAL = 50;
+      const AUTOSCROLL_MAT_PROGRESS_BAR_APPEAR_TIMEOUT = 3000;
+      const AUTOSCROLL_MAT_PROGRESS_BAR_DISAPPEAR_TIMEOUT = 5000;
+      const AUTOSCROLL_REPEAT_DELAY = 500;
+      const AUTOSCROLL_MAX_RETRY = 3;
+      const MESSAGE_ELEMENT_APPEAR_TIMEOUT = 5000;
+
+      let previousMessageCount = -1;
+      let retriesForProgressBar = 0;
+
+      const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      const waitForElementToAppear = async (
+        selector,
+        timeoutMs,
+        checkInterval = AUTOSCROLL_MAT_PROGRESS_BAR_POLL_INTERVAL
+      ) => {
+        const startTime = Date.now();
+        return new Promise((resolve) => {
+          const interval = setInterval(() => {
+            const element = document.querySelector(selector);
+            if (element) {
+              clearInterval(interval);
+              resolve(element);
+            } else if (Date.now() - startTime > timeoutMs) {
+              clearInterval(interval);
+              resolve(null);
+            }
+          }, checkInterval);
+        });
+      };
+
+      const waitForElementToDisappear = async (
+        selector,
+        timeoutMs,
+        checkInterval = AUTOSCROLL_MAT_PROGRESS_BAR_POLL_INTERVAL
+      ) => {
+        const startTime = Date.now();
+        return new Promise((resolve) => {
+          const interval = setInterval(() => {
+            const element = document.querySelector(selector);
+            if (
+              !element ||
+              (element.offsetWidth === 0 && element.offsetHeight === 0)
+            ) {
+              clearInterval(interval);
+              resolve(true);
+            } else if (Date.now() - startTime > timeoutMs) {
+              clearInterval(interval);
+              console.warn(
+                `waitForElementToDisappear: Timeout waiting for '${selector}' to disappear.`
+              );
+              resolve(false);
+            }
+          }, checkInterval);
+        });
+      };
+
+      // --- Wait for initial chat messages to appear ---
+      // This is crucial for new chat loads from sidebar clicks.
+      // console.log("Waiting for initial chat message elements...");
+      const initialMessageElement = await waitForElementToAppear(
+        GEMINI_MESSAGE_ITEM_SELECTOR,
+        MESSAGE_ELEMENT_APPEAR_TIMEOUT
+      );
+
+      if (!initialMessageElement) {
+        // UIManager.showAlert(
+        //   "Timeout waiting for chat messages to appear. Auto-scroll cannot proceed."
+        // );
+        console.error(
+          "Initial chat message elements did not appear within timeout."
+        );
+        // If initial messages don't appear, this URL was not successfully processed for auto-scroll.
+        // So, reset _lastProcessedChatUrl to null to allow a retry or a different trigger for this URL.
+        UIManager._lastProcessedChatUrl = null; // Add this line
+        return;
+      }
+      // console.log("Initial chat message elements found. Starting scroll loop.");
+
+      // Mark this URL as processed *only after* initial messages are found.
+      // This ensures that autoScrollToTop will proceed if called for a new URL,
+      // and will block subsequent calls for the *same* URL until _lastProcessedChatUrl is reset by handleUrlChange.
+      UIManager._lastProcessedChatUrl = currentUrl; // Move this line from the beginning to here.
+
+      // --- IMPORTANT: Attach URL change listeners here after initial chat message elements appears ---
+      if (!UIManager._initialListenersAttached) {
+        // Only attach them once
+        UIManager.initUrlChangeObserver();
+        UIManager._initialListenersAttached = true; // Mark that they are attached
+      }
+
+      while (true) {
+        scrollableElement.scrollTop = 0;
+        await delay(50); // Small delay after scroll
+
+        // console.log("Scrolling to top, checking for progress bar...");
+        const progressBarElement = await waitForElementToAppear(
+          "mat-progress-bar.mdc-linear-progress--indeterminate",
+          AUTOSCROLL_MAT_PROGRESS_BAR_APPEAR_TIMEOUT
+        );
+
+        if (progressBarElement) {
+          retriesForProgressBar = 0; // Reset retries if progress bar appeared
+          // console.log("Progress bar appeared. Waiting for it to disappear...");
+          const disappeared = await waitForElementToDisappear(
+            "mat-progress-bar.mdc-linear-progress--indeterminate",
+            AUTOSCROLL_MAT_PROGRESS_BAR_DISAPPEAR_TIMEOUT
+          );
+          if (!disappeared) {
+            console.warn(
+              "autoScrollToTop: mat-progress-bar did not disappear within expected time."
+            );
+          }
+        } else {
+          // If progress bar doesn't appear, increment retry count
+          retriesForProgressBar++;
+
+          if (retriesForProgressBar > AUTOSCROLL_MAX_RETRY) {
+            break;
+          }
+          await delay(AUTOSCROLL_REPEAT_DELAY);
+          continue; // Continue loop to try scrolling again
+        }
+
+        const currentConversationData =
+          ChatExporter.extractGeminiConversationData(document);
+        const currentMessageCount = currentConversationData
+          ? currentConversationData.messages.length
+          : 0;
+
+        if (currentMessageCount > previousMessageCount) {
+          previousMessageCount = currentMessageCount;
+          retriesForProgressBar = 0; // Reset retries if new messages found
+        } else {
+          // No new messages detected after a scroll attempt (and progress bar check)
+          // If we had messages before, and now no new ones, it means we reached the top.
+          // console.log("autoScrollToTop: No NEW messages detected after this load cycle. Checking for termination conditions.");
+          if (previousMessageCount !== -1) {
+            // console.log("autoScrollToTop: Assuming end of conversation due to no new messages after loading.");
+            break;
+          }
+        }
+
+        await delay(AUTOSCROLL_REPEAT_DELAY);
+      }
+
+      // console.log("autoScrollToTop: Auto-scroll process complete. Final message count:", previousMessageCount);
+      // UIManager.showAlert(
+      //   "Auto-scroll complete. You can now export your conversation."
+      // );
+      UIManager.addOutlineControls();
+    },
+
+    /**
+     * Handles URL changes to trigger auto-scroll for new Gemini chats.
+     * This will only be attached AFTER the initial page load auto-scroll finishes.
+     */
+    handleUrlChange: function () {
+      const newUrl = window.location.href;
+      // console.log(
+      //   "URL Change Detected (popstate or customHistoryChange):",
+      //   newUrl
+      // );
+
+      const isGeminiChatUrl =
+        GEMINI_HOSTNAMES.some((host) => newUrl.includes(host)) &&
+        newUrl.includes("/app");
+
+      if (isGeminiChatUrl) {
+        // Trigger auto-scroll for valid Gemini chat URLs.
+        setTimeout(() => {
+          UIManager.autoScrollToTop();
+        }, 100); // Small delay to allow DOM to update before triggering
+      } else {
+        console.log(
+          "URL is not a Gemini chat URL. Skipping auto-scroll for:",
+          newUrl
+        );
+      }
+    },
+
+    /**
      * Initializes a MutationObserver to ensure the controls are always present
      * and to regenerate the outline on DOM changes.
      */
@@ -1799,14 +2240,16 @@
           () => {
             clearTimeout(scrollTimeout);
             scrollTimeout = setTimeout(() => {
-              // Only regenerate if current data count is less than actual count (implies more loaded)
+              // Only regenerate if title or tags are different or current data count is less than actual count (implies more loaded)
               const newConversationData =
                 ChatExporter.extractGeminiConversationData(document);
               if (
                 newConversationData &&
                 ChatExporter._currentConversationData &&
-                newConversationData.messages.length >
-                  ChatExporter._currentConversationData.messages.length
+                (newConversationData._raw_title !==
+                  ChatExporter._currentConversationData._raw_title ||
+                  newConversationData.messages.length >
+                    ChatExporter._currentConversationData.messages.length)
               ) {
                 UIManager.addOutlineControls(); // Regenerate outline
               }
@@ -1818,6 +2261,40 @@
     },
 
     /**
+     * Sets up the event listeners for URL changes (popstate and customHistoryChange).
+     * This function will be called *after* the initial page load auto-scroll.
+     */
+    initUrlChangeObserver: function () {
+      // console.log("Attaching URL change listeners.");
+      window.addEventListener("popstate", UIManager.handleUrlChange);
+
+      // Overwrite history.pushState and history.replaceState to dispatch custom event
+      (function (history) {
+        const pushState = history.pushState;
+        history.pushState = function (state) {
+          if (typeof history.onpushstate == "function") {
+            history.onpushstate({ state: state });
+          }
+          const customEvent = new Event("customHistoryChange");
+          window.dispatchEvent(customEvent);
+          return pushState.apply(history, arguments);
+        };
+
+        const replaceState = history.replaceState;
+        history.replaceState = function (state) {
+          if (typeof history.onreplacestate == "function") {
+            history.onreplacestate({ state: state });
+          }
+          const customEvent = new Event("customHistoryChange");
+          window.dispatchEvent(customEvent);
+          return replaceState.apply(history, arguments);
+        };
+      })(window.history);
+
+      window.addEventListener("customHistoryChange", UIManager.handleUrlChange);
+    },
+
+    /**
      * Initializes the UI components by adding controls and setting up the observer.
      */
     init() {
@@ -1825,42 +2302,55 @@
       const storedCollapsedState = localStorage.getItem(
         OUTLINE_COLLAPSED_STATE_KEY
       );
-      if (storedCollapsedState === "true") {
-        // Check for 'true' string
-        UIManager._outlineIsCollapsed = true;
-      } else {
-        UIManager._outlineIsCollapsed = false; // Default or if stored is 'false'
-      }
+      UIManager._outlineIsCollapsed = storedCollapsedState === "true";
+
       // Add controls after DOM is ready
       if (
         document.readyState === "complete" ||
         document.readyState === "interactive"
       ) {
+        // console.log("DOM is ready (complete or interactive). Setting timeout for UI controls.");
         setTimeout(() => {
+          // console.log("Timeout elapsed. Adding export and outline controls.");
           UIManager.addExportControls();
           UIManager.addOutlineControls(); // Add outline after buttons
-        }, DOM_READY_TIMEOUT);
+          // New: Initiate auto-scroll for Gemini after controls are set up
+          // console.log("Checking if current host is a Gemini hostname...");
+          if (
+            GEMINI_HOSTNAMES.some((host) =>
+              window.location.hostname.includes(host)
+            )
+          ) {
+            setTimeout(() => {
+              // console.log("Delayed auto-scroll initiated."); // Debug log
+              UIManager.autoScrollToTop(); // This call will now use the async logic below
+            }, AUTOSCROLL_INITIAL_DELAY);
+          }
+        }, DOM_READY_TIMEOUT); // DOM_READY_TIMEOUT is assumed to be defined elsewhere, e.g., 1000ms
       } else {
+        // console.log("DOM not yet ready. Adding DOMContentLoaded listener.");
         window.addEventListener("DOMContentLoaded", () =>
           setTimeout(() => {
+            // console.log("DOMContentLoaded event fired. Adding export and outline controls after timeout.");
             UIManager.addExportControls();
             UIManager.addOutlineControls(); // Add outline after buttons
+            // New: Initiate auto-scroll for Gemini after controls are set up
+            // console.log("Checking if current host is a Gemini hostname (from DOMContentLoaded).");
+            if (
+              GEMINI_HOSTNAMES.some((host) =>
+                window.location.hostname.includes(host)
+              )
+            ) {
+              setTimeout(() => {
+                // console.log("Delayed auto-scroll initiated (from DOMContentLoaded)."); // Debug log
+                UIManager.autoScrollToTop(); // This call will now use the async logic below
+              }, AUTOSCROLL_INITIAL_DELAY);
+            }
           }, DOM_READY_TIMEOUT)
         );
       }
-      UIManager.initObserver();
 
-      // Show alert specifically for Gemini on initial load if not hidden
-      if (
-        GEMINI_HOSTNAMES.some((host) =>
-          window.location.hostname.includes(host)
-        ) &&
-        localStorage.getItem(HIDE_ALERT_FLAG) !== "true"
-      ) {
-        UIManager.showAlert(
-          "Before using the Export MD or Export JSON tool (by clicking the button at the right corner of the page), please scroll up to the beginning of the conversation to ensure all messages will be exported. If you don't scroll up first, some earlier messages might be missed."
-        );
-      }
+      UIManager.initObserver();
     },
   };
 
