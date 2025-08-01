@@ -1,14 +1,15 @@
 // ==UserScript==
-// @name         ChatGPT / Claude / Gemini AI Chat Exporter by RevivalStack
+// @name         ChatGPT / Claude / Copilot / Gemini AI Chat Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
-// @version      2.6.0
-// @description  Export your ChatGPT, Claude or Gemini chat into a properly and elegantly formatted Markdown or JSON.
+// @version      2.7.0
+// @description  Export your ChatGPT, Claude, Copilot or Gemini chat into a properly and elegantly formatted Markdown or JSON.
 // @author       Mic Mejia (Refactored by Google Gemini)
 // @homepage     https://github.com/micmejia
 // @license      MIT License
 // @match        https://chat.openai.com/*
 // @match        https://chatgpt.com/*
 // @match        https://claude.ai/*
+// @match        https://copilot.microsoft.com/*
 // @match        https://gemini.google.com/*
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -18,7 +19,7 @@
   "use strict";
 
   // --- Global Constants ---
-  const EXPORTER_VERSION = "2.6.0";
+  const EXPORTER_VERSION = "2.7.0";
   const EXPORT_CONTAINER_ID = "export-controls-container";
   const OUTLINE_CONTAINER_ID = "export-outline-container"; // ID for the outline div
   const DOM_READY_TIMEOUT = 1000;
@@ -149,12 +150,12 @@
     fontSize: "16px",
     cursor: "pointer",
     padding: "0 5px",
-    color: "#5b3f86",
+    color: "#5b3f87",
   };
 
   const BUTTON_BASE_PROPS = {
     padding: "10px 14px",
-    backgroundColor: "#5b3f86", // Primary brand color
+    backgroundColor: "#5b3f87", // Primary brand color
     color: "white",
     border: "none",
     cursor: "pointer",
@@ -173,7 +174,7 @@
     left: "50%",
     transform: "translateX(-50%)",
     zIndex: "10000",
-    backgroundColor: "rgba(91, 63, 134, 0.9)", // Shade of #5b3f86 with transparency
+    backgroundColor: "rgba(91, 63, 135, 0.9)", // Shade of #5b3f87 with transparency
     color: "white",
     padding: "15px 20px",
     borderRadius: "8px",
@@ -240,18 +241,27 @@
   const CLAUDE_USER_MESSAGE_CLASS = "font-user-message";
   const CLAUDE_THINKING_BLOCK_CLASS = "transition-all";
   const CLAUDE_ARTIFACT_BLOCK_CELL = ".artifact-block-cell";
-  const CLAUDE_CODE_BLOCK_SELECTOR = "pre code";
+
+  const COPILOT = "copilot";
+  const COPILOT_HOSTNAMES = ["copilot.microsoft.com"];
+  const COPILOT_MESSAGE_SELECTOR =
+    '[data-content="user-message"], [data-content="ai-message"]';
+  const COPILOT_USER_MESSAGE_SELECTOR = '[data-content="user-message"]';
+  const COPILOT_BOT_MESSAGE_SELECTOR = '[data-content="ai-message"]';
 
   const HOSTNAME = window.location.hostname;
   const CURRENT_PLATFORM = (() => {
     if (CHATGPT_HOSTNAMES.some((host) => HOSTNAME.includes(host))) {
       return CHATGPT;
     }
-    if (GEMINI_HOSTNAMES.some((host) => HOSTNAME.includes(host))) {
-      return GEMINI;
-    }
     if (CLAUDE_HOSTNAMES.some((host) => HOSTNAME.includes(host))) {
       return CLAUDE;
+    }
+    if (COPILOT_HOSTNAMES.some((host) => HOSTNAME.includes(host))) {
+      return COPILOT;
+    }
+    if (GEMINI_HOSTNAMES.some((host) => HOSTNAME.includes(host))) {
+      return GEMINI;
     }
     return "unknown";
   })();
@@ -663,6 +673,80 @@
     },
 
     /**
+     * Extracts chat data from Copilot's DOM structure.
+     * @param {Document} doc - The Document object.
+     * @returns {object|null} The standardized chat data, or null.
+     */
+    extractCopilotChatData(doc) {
+      const messageItems = [...doc.querySelectorAll(COPILOT_MESSAGE_SELECTOR)];
+      if (messageItems.length === 0) return null;
+
+      const messages = [];
+      let chatIndex = 1;
+
+      let rawTitle = "";
+      const selected = doc.querySelector(
+        '[role="option"][aria-selected="true"]'
+      );
+      if (selected) {
+        rawTitle =
+          selected.querySelector("p")?.textContent.trim() ||
+          (selected.getAttribute("aria-label") || "")
+            .split(",")
+            .slice(1)
+            .join(",")
+            .trim();
+      }
+      if (!rawTitle) {
+        rawTitle = (doc.title || "")
+          .replace(/^\s*Microsoft[_\s-]*Copilot.*$/i, "")
+          .replace(/\s*[-–|]\s*Copilot.*$/i, "")
+          .trim();
+      }
+      if (!rawTitle) rawTitle = "Copilot Conversation";
+
+      for (const item of messageItems) {
+        const isUser = item.matches(COPILOT_USER_MESSAGE_SELECTOR);
+        const author = isUser ? "user" : "ai";
+        // The actual content is nested differently for user and AI messages
+        const messageContentElem = isUser
+          ? item.querySelector("div")
+          : item.querySelector(":scope > div:nth-child(2)");
+
+        if (!messageContentElem) continue;
+
+        const messageId = `${author}-${chatIndex}-${Date.now()}-${Math.random()
+          .toString(36)
+          .substring(2, 9)}`;
+
+        messages.push({
+          id: messageId,
+          author: author,
+          contentHtml: messageContentElem.cloneNode(true),
+          contentText: messageContentElem.innerText.trim(),
+          timestamp: new Date(),
+          originalIndex: chatIndex,
+        });
+
+        if (author === "ai") chatIndex++;
+      }
+
+      const _parsedTitle = Utils.parseChatTitleAndTags(rawTitle);
+
+      return {
+        _raw_title: rawTitle,
+        title: _parsedTitle.title,
+        tags: _parsedTitle.tags,
+        author: COPILOT,
+        messages: messages,
+        messageCount: messages.filter((m) => m.author === "user").length,
+        exportedAt: new Date(),
+        exporterVersion: EXPORTER_VERSION,
+        threadUrl: window.location.href,
+      };
+    },
+
+    /**
      * Extracts chat data from Gemini's DOM structure.
      * @param {Document} doc - The Document object.
      * @returns {object|null} The standardized chat data, or null.
@@ -831,9 +915,27 @@
      * Converts standardized chat data to JSON format.
      * This function now expects a pre-filtered `chatData`.
      * @param {object} chatData - The standardized chat data (already filtered).
+     * @param {TurndownService} turndownServiceInstance - Configured TurndownService.
      * @returns {{output: string, fileName: string}} JSON string and filename.
      */
-    formatToJSON(chatData) {
+    formatToJSON(chatData, turndownServiceInstance) {
+      const processMessageContent = function (msg) {
+        if (msg.author === "user") {
+          return msg.contentText;
+        } else {
+          let markdownContent;
+          try {
+            markdownContent = turndownServiceInstance.turndown(msg.contentHtml);
+          } catch (e) {
+            console.error(
+              `Error converting AI message ${msg.id} to Markdown:`,
+              e
+            );
+            markdownContent = `[CONVERSION ERROR: Failed to render this section.]: ${msg.contentText}`;
+          }
+          return markdownContent;
+        }
+      };
       const jsonOutput = {
         title: chatData.title,
         tags: chatData.tags,
@@ -845,7 +947,7 @@
         messages: chatData.messages.map((msg) => ({
           id: msg.id.split("-").slice(0, 2).join("-"), // Keep the ID for reference in JSON
           author: msg.author,
-          content: msg.contentText,
+          content: processMessageContent(msg),
         })),
       };
 
@@ -867,6 +969,88 @@
      * @param {TurndownService} turndownServiceInstance - Configured TurndownService.
      */
     setupTurndownRules(turndownServiceInstance) {
+      if (CURRENT_PLATFORM === CHATGPT) {
+        turndownServiceInstance.addRule("chatgptRemoveReactions", {
+          filter: (node) =>
+            node.nodeName === "DIV" &&
+            // Check for the language div (2nd child).
+            node.querySelector(
+              ':scope > div:nth-child(1) > button[data-testid="copy-turn-action-button"]'
+            ),
+          replacement: () => "",
+        });
+        turndownServiceInstance.addRule("chatgptRemoveH6ChatGPTSaid", {
+          filter: (node) =>
+            node.nodeName === "H6" &&
+            node.classList.contains("sr-only") &&
+            node.textContent.trim().toLowerCase().startsWith("chatgpt said"),
+          replacement: () => "",
+        });
+      }
+
+      if (CURRENT_PLATFORM === COPILOT) {
+        turndownServiceInstance.addRule("copilotRemoveReactions", {
+          filter: (node) =>
+            node.matches('[data-testid="message-item-reactions"]'),
+          replacement: () => "",
+        });
+
+        // This single rule handles the entire Copilot code block structure.
+        turndownServiceInstance.addRule("copilotCodeBlock", {
+          filter: function (node, options) {
+            // Filter for the grandparent div of the pre element using more concise CSS selectors.
+            return (
+              node.nodeName === "DIV" &&
+              // Check for the language div (2nd child).
+              node.querySelector(":scope > div:nth-child(1) > span") &&
+              // Check for the code block div (3rd child) with a direct <pre> child.
+              node.querySelector(":scope > div:nth-child(2) > div > pre")
+            );
+          },
+          replacement: function (content, node) {
+            // Get the language from the second child div.
+            const languageNode = node.querySelector(
+              ":scope > div:nth-child(1) > span"
+            );
+            const language = languageNode
+              ? languageNode.textContent.trim().toLowerCase()
+              : "";
+
+            // Get the code content from the pre > code element within the third child div.
+            const codeNode = node.querySelector(
+              ":scope > div:nth-child(2) > div > pre > code"
+            );
+            if (!codeNode) return "";
+
+            const codeText = codeNode.textContent || "";
+
+            return "\n\n```" + language + "\n" + codeText + "\n```\n\n";
+          },
+        });
+
+        turndownServiceInstance.addRule("copilotFooterLinks", {
+          filter: function (node, options) {
+            // Footer links for each message is an <a> with children: span, img, and span
+            // Use the last span content as text
+            return (
+              node.nodeName === "A" &&
+              node.querySelector(":scope > span:nth-child(1)") &&
+              node.querySelector(":scope > img:nth-child(2)") &&
+              node.querySelector(":scope > span:nth-child(3)")
+            );
+          },
+          replacement: function (content, node) {
+            // Get the link text from last span.
+            const lastSpan = node.querySelector(":scope > span:nth-child(3)");
+            const linkText = lastSpan
+              ? lastSpan.textContent.trim()
+              : node.getAttribute("href");
+
+            return `[${linkText}](${node.getAttribute("href")}) `;
+          },
+        });
+      }
+
       turndownServiceInstance.addRule("lineBreak", {
         filter: "br",
         replacement: () => "  \n",
@@ -1161,10 +1345,10 @@
           replacement: (content) =>
             content.trim() ? `__${content}__\n\n` : "",
         });
-        turndownServiceInstance.addRule("remove-img", {
-          filter: "img",
-          replacement: () => "", // Remove image tags
-        });
+        // turndownServiceInstance.addRule("remove-img", {
+        //   filter: "img",
+        //   replacement: () => "", // Remove image tags
+        // });
       }
 
       // Gemini specific rule to remove language labels from being processed as content
@@ -1177,6 +1361,15 @@
           replacement: () => "", // Replace with empty string
         });
       }
+
+      turndownServiceInstance.addRule("images", {
+        filter: (node) => node.nodeName === "IMG",
+        replacement: (content, node) => {
+          const src = node.getAttribute("src") || "";
+          const alt = node.alt || "";
+          return src ? `![${alt}](${src})` : "";
+        },
+      });
     },
 
     /**
@@ -1276,11 +1469,10 @@
       let fileName = null;
       let mimeType = "";
 
+      turndownServiceInstance = new TurndownService();
+      ChatExporter.setupTurndownRules(turndownServiceInstance);
+
       if (format === "markdown") {
-        turndownServiceInstance = new TurndownService();
-
-        ChatExporter.setupTurndownRules(turndownServiceInstance);
-
         // Pass the filtered chat data to formatToMarkdown
         const markdownResult = ChatExporter.formatToMarkdown(
           chatDataForExport,
@@ -1291,7 +1483,10 @@
         mimeType = "text/markdown;charset=utf-8";
       } else if (format === "json") {
         // Pass the filtered chat data to formatToJSON
-        const jsonResult = ChatExporter.formatToJSON(chatDataForExport);
+        const jsonResult = ChatExporter.formatToJSON(
+          chatDataForExport,
+          turndownServiceInstance
+        );
         fileOutput = jsonResult.output;
         fileName = jsonResult.fileName;
         mimeType = "application/json;charset=utf-8";
@@ -1305,6 +1500,52 @@
       }
     },
   };
+
+  // --- Injected CSS for Theme Overrides ---
+  function injectThemeOverrideStyles() {
+    const styleElement = document.createElement("style");
+    styleElement.id = "ai-chat-exporter-theme-overrides";
+    styleElement.textContent = `
+      /* Always ensure the outline container and its children have a light theme */
+      #${OUTLINE_CONTAINER_ID} {
+        background-color: #fff !important;
+        color: #333 !important;
+      }
+
+      /* Force the search input to have a light background and text color */
+      #${OUTLINE_CONTAINER_ID} #outline-search-input {
+        background-color: #fff !important;
+        color: #333 !important;
+        border: 1px solid #ddd !important;
+      }
+
+      /* --- Special rule for Gemini's search box on dark theme --- */
+      /* Gemini's dark theme selector is very specific, so we need to match or exceed it. */
+      .dark-theme #${OUTLINE_CONTAINER_ID} #outline-search-input {
+        background-color: #fff !important;
+        color: #333 !important;
+      }
+
+      /* Force scrollbar to be light for all browsers */
+      /* For WebKit (Chrome, Safari, Gemini, ChatGPT) */
+      #${OUTLINE_CONTAINER_ID} ::-webkit-scrollbar {
+        width: 8px;
+        background-color: #f1f1f1; /* Light track color */
+      }
+      
+      #${OUTLINE_CONTAINER_ID} ::-webkit-scrollbar-thumb {
+        background-color: #c1c1c1; /* Light thumb color */
+        border-radius: 4px;
+      }
+
+      /* For Firefox */
+      #${OUTLINE_CONTAINER_ID} {
+        scrollbar-color: #c1c1c1 #f1f1f1 !important; /* Light thumb and track */
+        scrollbar-width: thin !important;
+      }
+    `;
+    document.head.appendChild(styleElement);
+  }
 
   // --- UI Management ---
   const UIManager = {
@@ -1481,11 +1722,14 @@
         case CHATGPT:
           freshChatData = ChatExporter.extractChatGPTChatData(document);
           break;
-        case GEMINI:
-          freshChatData = ChatExporter.extractGeminiChatData(document);
-          break;
         case CLAUDE:
           freshChatData = ChatExporter.extractClaudeChatData(document);
+          break;
+        case COPILOT:
+          freshChatData = ChatExporter.extractCopilotChatData(document);
+          break;
+        case GEMINI:
+          freshChatData = ChatExporter.extractGeminiChatData(document);
           break;
         default:
           outlineContainer.style.display = "none"; // Hide if not supported
@@ -1697,7 +1941,7 @@
           // Add hover effect
           itemText.onmouseover = () => {
             itemText.style.backgroundColor = "#f0f0f0"; // Light gray background on hover
-            itemText.style.color = "#5b3f86"; // Change text color on hover
+            itemText.style.color = "#5b3f87"; // Change text color on hover
           };
           itemText.onmouseout = () => {
             itemText.style.backgroundColor = "transparent"; // Revert background on mouse out
@@ -1709,7 +1953,7 @@
             const messageElement = ChatExporter._currentChatData.messages.find(
               (m) => m.id === msg.id
             )?.contentHtml;
-
+            // console.log("clicked on message", msg.id, messageElement);
             if (messageElement) {
               messageElement.scrollIntoView({
                 behavior: "smooth",
@@ -2297,10 +2541,17 @@
 
       // Selector that includes chat messages and where new messages are added
       let targetNode = null;
-      if (CURRENT_PLATFORM === GEMINI) {
-        targetNode = document.querySelector("#__next") || document.body;
-      } else {
-        targetNode = document.querySelector("main") || document.body;
+      switch (CURRENT_PLATFORM) {
+        case COPILOT:
+          targetNode =
+            document.querySelector('[data-content="conversation"]') ||
+            document.body;
+          break;
+        case GEMINI:
+          targetNode = document.querySelector("#__next") || document.body;
+          break;
+        default:
+          targetNode = document.querySelector("main") || document.body;
       }
 
       observer.observe(targetNode, {
@@ -2420,6 +2671,9 @@
       }
 
       UIManager.initObserver();
+
+      // To have a uniform look regardless if light or dark theme is used
+      injectThemeOverrideStyles();
     },
   };
 

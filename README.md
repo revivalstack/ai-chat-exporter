@@ -1,8 +1,16 @@
-# ChatGPT / Claude / Gemini AI Chat Exporter by RevivalStack (v2.5.0)
+# ChatGPT-Claude-Copilot-Gemini AI Chat Exporter by RevivalStack (v2.7.0)
 
-**ChatGPT / Claude / Gemini AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from **ChatGPT**, **Claude**, and **Google Gemini** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
+**ChatGPT-Claude-Copilot-Gemini AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from **ChatGPT**, **Claude**, **Copilot**, and **Google Gemini** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
 
-![ChatGPT / Gemini AI Chat Exporter](images/chatgpt-gemini-ai-exporter.png)
+![ChatGPT-Claude-Copilot-Gemini AI Chat Exporter](images/chatgpt-gemini-ai-exporter.png)
+
+## What's New in v2.7.0?
+
+This version focuses on enhancing cross-platform compatibility and providing a more consistent user experience.
+
+- **Copilot Support**: Full support for exporting chats from Microsoft Copilot.
+- **Consistent UI Theme**: The chat outline UI now consistently displays in a light theme, regardless of the host website's system theme. This ensures the search box and scrollbar are always visible and legible.
+- **Improved JSON Export**: The JSON output now mirrors the Markdown export, with AI messages converted to Markdown and a more structured format, providing a consistent data model for programmatic use.
 
 ## What's New in v2.6.0?
 
@@ -10,6 +18,7 @@ This version introduces support for the Claude platform and includes several ref
 
 - **Claude Support**: Full support for exporting chats from Claude.
 - **Robust Code Block Handling**: A specialized `turndownService` rule has been implemented to correctly handle and format Claude's unique code block structure, ensuring the language label is properly included in the Markdown output.
+- **Code Refactoring**: The code has been refactored for improved readability and maintainability.
 
 ## What's New in v2.5.0?
 
@@ -30,7 +39,7 @@ This version introduces significant enhancements focused on customization, outpu
 
 ## Features
 
-- **Cross-Platform Support**: Export conversations seamlessly from both **ChatGPT** and **Google Gemini**.
+- **Cross-Platform Support**: Export conversations seamlessly from **ChatGPT**, **Claude**, **Copilot**, and **Google Gemini**.
 - **Markdown Conversion**: Converts your chat conversation into a properly and elegantly formatted Markdown, ensuring accurate rendering of text, code blocks, tables, and especially **correct newlines within list items**.
   - **Table of Contents (TOC)**: Automatically generates a TOC linking to each message pair (user question + AI response) within the Markdown export.
   - **Back to Top**: Allows quick navigation through a "Back to Top" link after each AI response in the Markdown export.
@@ -62,7 +71,7 @@ This version introduces significant enhancements focused on customization, outpu
 
     [Install UserScript (ai-chat-exporter.user.js)](https://raw.githubusercontent.com/revivalstack/chatgpt-exporter/refs/heads/main/ai-chat-exporter.user.js)
 
-3.  Navigate to any ChatGPT or Google Gemini conversation page.
+3.  Navigate to any ChatGPT, Claude, Copilot, or Google Gemini conversation page.
 4.  A floating "⬇ Export MD" and "⬇ JSON" button will appear at the bottom right of the page.
 5.  Click the desired button to download your conversation.
 
