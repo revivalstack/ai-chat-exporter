@@ -1,3 +1,9 @@
+## 2.7.0 (2025-08-02)
+
+### Feat
+
+- add Copilot support, improve JSON export, and ensure UI theme consistency
+
 ## 2.6.0 (2025-08-01)
 
 ### Feat
