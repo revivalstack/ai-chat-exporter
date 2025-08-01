@@ -1,13 +1,14 @@
 // ==UserScript==
-// @name         ChatGPT / Gemini AI Chat Exporter by RevivalStack
+// @name         ChatGPT / Claude / Gemini AI Chat Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
-// @version      2.5.0
-// @description  Export your ChatGPT or Gemini conversation into a properly and elegantly formatted Markdown or JSON.
+// @version      2.6.0
+// @description  Export your ChatGPT, Claude or Gemini chat into a properly and elegantly formatted Markdown or JSON.
 // @author       Mic Mejia (Refactored by Google Gemini)
 // @homepage     https://github.com/micmejia
 // @license      MIT License
 // @match        https://chat.openai.com/*
 // @match        https://chatgpt.com/*
+// @match        https://claude.ai/*
 // @match        https://gemini.google.com/*
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -17,7 +18,7 @@
   "use strict";
 
   // --- Global Constants ---
-  const EXPORTER_VERSION = "2.5.0";
+  const EXPORTER_VERSION = "2.6.0";
   const EXPORT_CONTAINER_ID = "export-controls-container";
   const OUTLINE_CONTAINER_ID = "export-outline-container"; // ID for the outline div
   const DOM_READY_TIMEOUT = 1000;
@@ -216,6 +217,7 @@
   };
 
   // --- Hostname-Specific Selectors & Identifiers ---
+  const CHATGPT = "chatgpt";
   const CHATGPT_HOSTNAMES = ["chat.openai.com", "chatgpt.com"];
   const CHATGPT_TITLE_REPLACE_TEXT = " - ChatGPT";
   const CHATGPT_ARTICLE_SELECTOR = "article";
@@ -225,11 +227,34 @@
   const CHATGPT_POPUP_DIV_CLASS = "popover";
   const CHATGPT_BUTTON_SPECIFIC_CLASS = "text-sm";
 
+  const GEMINI = "gemini";
   const GEMINI_HOSTNAMES = ["gemini.google.com"];
   const GEMINI_TITLE_REPLACE_TEXT = "Gemini - ";
   const GEMINI_MESSAGE_ITEM_SELECTOR = "user-query, model-response";
   const GEMINI_SIDEBAR_ACTIVE_CHAT_SELECTOR =
     'div[data-test-id="conversation"].selected .conversation-title';
+
+  const CLAUDE = "claude";
+  const CLAUDE_HOSTNAMES = ["claude.ai"];
+  const CLAUDE_MESSAGE_SELECTOR = ".font-claude-message, .font-user-message";
+  const CLAUDE_USER_MESSAGE_CLASS = "font-user-message";
+  const CLAUDE_THINKING_BLOCK_CLASS = "transition-all";
+  const CLAUDE_ARTIFACT_BLOCK_CELL = ".artifact-block-cell";
+  const CLAUDE_CODE_BLOCK_SELECTOR = "pre code";
+
+  const HOSTNAME = window.location.hostname;
+  const CURRENT_PLATFORM = (() => {
+    if (CHATGPT_HOSTNAMES.some((host) => HOSTNAME.includes(host))) {
+      return CHATGPT;
+    }
+    if (GEMINI_HOSTNAMES.some((host) => HOSTNAME.includes(host))) {
+      return GEMINI;
+    }
+    if (CLAUDE_HOSTNAMES.some((host) => HOSTNAME.includes(host))) {
+      return CLAUDE;
+    }
+    return "unknown";
+  })();
 
   // --- Markdown Formatting Constants ---
   const DEFAULT_CHAT_TITLE = "chat";
@@ -259,241 +284,6 @@
         codeBlockStyle: "fenced",
         ...options,
       };
-
-      this.addRule("lineBreak", {
-        filter: "br",
-        replacement: () => "  \n",
-      });
-
-      this.addRule("heading", {
-        filter: ["h1", "h2", "h3", "h4", "h5", "h6"],
-        replacement: (content, node) => {
-          const hLevel = Number(node.nodeName.charAt(1));
-          return `\n\n${"#".repeat(hLevel)} ${content}\n\n`;
-        },
-      });
-
-      // Custom rule for list items to ensure proper nesting and markers
-      this.addRule("customLi", {
-        filter: "li",
-        replacement: function (content, node) {
-          let processedContent = content.trim();
-
-          // Heuristic: If content contains multiple lines and the second line
-          // looks like a list item, ensure a double newline for nested lists.
-          if (processedContent.length > 0) {
-            const lines = processedContent.split("\n");
-            if (lines.length > 1 && /^\s*[-*+]|^[0-9]+\./.test(lines[1])) {
-              processedContent = lines.join("\n\n").trim();
-            }
-          }
-
-          let listItemMarkdown;
-          if (node.parentNode.nodeName === "UL") {
-            let indent = "";
-            let liAncestorCount = 0;
-            let parent = node.parentNode;
-
-            // Calculate indentation for nested unordered lists
-            while (parent) {
-              if (parent.nodeName === "LI") {
-                liAncestorCount++;
-              }
-              parent = parent.parentNode;
-            }
-            for (let i = 0; i < liAncestorCount; i++) {
-              indent += "    "; // 4 spaces per nesting level
-            }
-            listItemMarkdown = `${indent}${this.options.bulletListMarker} ${processedContent}`;
-          } else if (node.parentNode.nodeName === "OL") {
-            // Get the correct index for ordered list items
-            const siblings = Array.from(node.parentNode.children).filter(
-              (child) => child.nodeName === "LI"
-            );
-            const index = siblings.indexOf(node);
-            listItemMarkdown = `${index + 1}. ${processedContent}`;
-          } else {
-            listItemMarkdown = processedContent; // Fallback
-          }
-          // Always add a newline after each list item for separation
-          return listItemMarkdown + "\n";
-        }.bind(this),
-      });
-
-      this.addRule("code", {
-        filter: "code",
-        replacement: (content, node) => {
-          if (node.parentNode.nodeName === "PRE") return content;
-          return `\`${content}\``;
-        },
-      });
-
-      // Rule for preformatted code blocks
-      this.addRule("pre", {
-        filter: "pre",
-        replacement: (content, node) => {
-          let lang = "";
-
-          // Attempt to find language for Gemini's code blocks
-          const geminiCodeBlockParent = node.closest(".code-block");
-          if (geminiCodeBlockParent) {
-            const geminiLanguageSpan = geminiCodeBlockParent.querySelector(
-              ".code-block-decoration span"
-            );
-            if (geminiLanguageSpan && geminiLanguageSpan.textContent.trim()) {
-              lang = geminiLanguageSpan.textContent.trim();
-            }
-          }
-
-          // Fallback to ChatGPT's language selector if Gemini's wasn't found
-          if (!lang) {
-            const chatgptLanguageDiv = node.querySelector(
-              ".flex.items-center.text-token-text-secondary"
-            );
-            if (chatgptLanguageDiv) {
-              lang = chatgptLanguageDiv.textContent.trim();
-            }
-          }
-
-          const codeElement = node.querySelector("code");
-          const codeText = codeElement ? codeElement.textContent.trim() : "";
-
-          // Ensure a blank line before the code section's language text if its parent is a list item
-          let prefix = "\n"; // Default prefix for code blocks
-          let prevSibling = node.previousElementSibling;
-
-          // Check for a specific pattern: <p> immediately followed by <pre> inside an <li>
-          if (prevSibling && prevSibling.nodeName === "P") {
-            let parentLi = prevSibling.closest("li");
-            if (parentLi && parentLi.contains(node)) {
-              // Ensure the <pre> is also a descendant of the same <li>
-              prefix = "\n\n"; // Add an extra newline for better separation
-            }
-          }
-
-          return `${prefix}\`\`\`${lang}\n${codeText}\n\`\`\`\n`;
-        },
-      });
-
-      this.addRule("strong", {
-        filter: ["strong", "b"],
-        replacement: (content) => `**${content}**`,
-      });
-
-      this.addRule("em", {
-        filter: ["em", "i"],
-        replacement: (content) => `_${content}_`,
-      });
-
-      this.addRule("blockQuote", {
-        filter: "blockquote",
-        replacement: (content) =>
-          content
-            .trim()
-            .split("\n")
-            .map((l) => `> ${l}`)
-            .join("\n"),
-      });
-
-      this.addRule("link", {
-        filter: "a",
-        replacement: (content, node) =>
-          `[${content}](${node.getAttribute("href")})`,
-      });
-
-      this.addRule("strikethrough", {
-        filter: (node) => node.nodeName === "DEL",
-        replacement: (content) => `~~${content}~~`,
-      });
-
-      // Rule for HTML tables to Markdown table format
-      this.addRule("table", {
-        filter: "table",
-        replacement: function (content, node) {
-          const headerRows = Array.from(node.querySelectorAll("thead tr"));
-          const bodyRows = Array.from(node.querySelectorAll("tbody tr"));
-          const footerRows = Array.from(node.querySelectorAll("tfoot tr"));
-
-          let allRowsContent = [];
-
-          const getRowCellsContent = (rowElement) => {
-            const cells = Array.from(rowElement.querySelectorAll("th, td"));
-            return cells.map((cell) =>
-              cell.textContent.replace(/\s+/g, " ").trim()
-            );
-          };
-
-          if (headerRows.length > 0) {
-            allRowsContent.push(getRowCellsContent(headerRows[0]));
-          }
-
-          bodyRows.forEach((row) => {
-            allRowsContent.push(getRowCellsContent(row));
-          });
-
-          footerRows.forEach((row) => {
-            allRowsContent.push(getRowCellsContent(row));
-          });
-
-          if (allRowsContent.length === 0) {
-            return "";
-          }
-
-          const isFirstRowAHeader = headerRows.length > 0;
-          const maxCols = Math.max(...allRowsContent.map((row) => row.length));
-
-          const paddedRows = allRowsContent.map((row) => {
-            const paddedRow = [...row];
-            while (paddedRow.length < maxCols) {
-              paddedRow.push("");
-            }
-            return paddedRow;
-          });
-
-          let markdownTable = "";
-
-          if (isFirstRowAHeader) {
-            markdownTable += "| " + paddedRows[0].join(" | ") + " |\n";
-            markdownTable += "|" + Array(maxCols).fill("---").join("|") + "|\n";
-            for (let i = 1; i < paddedRows.length; i++) {
-              markdownTable += "| " + paddedRows[i].join(" | ") + " |\n";
-            }
-          } else {
-            for (let i = 0; i < paddedRows.length; i++) {
-              markdownTable += "| " + paddedRows[i].join(" | ") + " |\n";
-              if (i === 0) {
-                markdownTable +=
-                  "|" + Array(maxCols).fill("---").join("|") + "|\n";
-              }
-            }
-          }
-
-          return markdownTable.trim();
-        },
-      });
-
-      // Universal rule for paragraph tags with a fix for list item newlines
-      this.addRule("paragraph", {
-        filter: "p",
-        replacement: (content, node) => {
-          if (!content.trim()) return ""; // Ignore empty paragraphs
-
-          let currentNode = node.parentNode;
-          while (currentNode) {
-            // If inside TH or TR (table headers/rows), suppress newlines.
-            if (PARAGRAPH_FILTER_PARENT_NODES.includes(currentNode.nodeName)) {
-              return content;
-            }
-            // If inside an LI (list item), add a single newline for proper separation.
-            if (currentNode.nodeName === "LI") {
-              return content + "\n";
-            }
-            currentNode = currentNode.parentNode;
-          }
-          // For all other cases, add double newlines for standard paragraph separation.
-          return `\n\n${content}\n\n`;
-        },
-      });
     }
 
     addRule(key, rule) {
@@ -642,7 +432,7 @@
 
       const replacements = {
         "{exporter}": EXPORTER_VERSION,
-        "{platform}": Utils.getPlatformPrefix(),
+        "{platform}": CURRENT_PLATFORM,
         "{title}": title.slice(0, 70).toLocaleLowerCase(),
         "{timestamp}": new Date().toISOString(),
         "{timestampLocal}": Utils.formatLocalTime(new Date()),
@@ -668,34 +458,6 @@
       }
 
       return Utils.slugify(`${formattedFilename}.${ext}`, false);
-    },
-
-    /**
-     * Determines the current AI chat platform based on the hostname.
-     *
-     * @returns {string} The lowercase platform prefix (e.g., "chatgpt", "gemini", "unknown").
-     */
-    getPlatformPrefix() {
-      // Hardcoded constants for known platform hostnames
-      const PLATFORM_HOSTNAMES = {
-        chatgpt: CHATGPT_HOSTNAMES,
-        gemini: GEMINI_HOSTNAMES,
-      };
-
-      const currentHostname = window.location.hostname;
-
-      for (const platform in PLATFORM_HOSTNAMES) {
-        if (PLATFORM_HOSTNAMES.hasOwnProperty(platform)) {
-          const hostnames = PLATFORM_HOSTNAMES[platform];
-          if (hostnames.some((host) => currentHostname.includes(host))) {
-            // Return the platform key (which is already lowercase)
-            return platform;
-          }
-        }
-      }
-
-      // If no match is found, return a default/unknown platform
-      return "unknown";
     },
 
     /**
@@ -746,15 +508,15 @@
 
   // --- Core Export Logic ---
   const ChatExporter = {
-    _currentConversationData: null, // Store the last extracted conversation data
+    _currentChatData: null, // Store the last extracted chat data
     _selectedMessageIds: new Set(), // Store IDs of selected messages for export
 
     /**
-     * Extracts conversation data from ChatGPT's DOM structure.
+     * Extracts chat data from ChatGPT's DOM structure.
      * @param {Document} doc - The Document object.
-     * @returns {object|null} The standardized conversation data, or null.
+     * @returns {object|null} The standardized chat data, or null.
      */
-    extractChatGPTConversationData(doc) {
+    extractChatGPTChatData(doc) {
       const articles = [...doc.querySelectorAll(CHATGPT_ARTICLE_SELECTOR)];
       if (articles.length === 0) return null;
 
@@ -809,7 +571,7 @@
         _raw_title: title,
         title: _parsedTitle.title,
         tags: _parsedTitle.tags,
-        author: Utils.getPlatformPrefix(),
+        author: CURRENT_PLATFORM,
         messages: messages,
         messageCount: messages.filter((m) => m.author === "user").length, // Count user messages as questions
         exportedAt: new Date(),
@@ -819,11 +581,93 @@
     },
 
     /**
-     * Extracts conversation data from Gemini's DOM structure.
+     * Extracts chat data from Claude's DOM structure.
      * @param {Document} doc - The Document object.
-     * @returns {object|null} The standardized conversation data, or null.
+     * @returns {object|null} The standardized chat data, or null.
      */
-    extractGeminiConversationData(doc) {
+    extractClaudeChatData(doc) {
+      const messageItems = [...doc.querySelectorAll(CLAUDE_MESSAGE_SELECTOR)];
+      if (messageItems.length === 0) return null;
+
+      const messages = [];
+      let chatIndex = 1;
+      const chatTitle = doc.title || DEFAULT_CHAT_TITLE;
+
+      messageItems.forEach((item) => {
+        const isUser = item.classList.contains(CLAUDE_USER_MESSAGE_CLASS);
+        const author = isUser ? "user" : "ai";
+
+        let messageContentHtml = null;
+        let messageContentText = "";
+
+        if (isUser) {
+          // For user messages, the entire div is the content
+          messageContentHtml = item;
+          messageContentText = item.innerText.trim();
+        } else {
+          // For Claude messages, we need to filter out "thinking" blocks
+          const claudeResponseContent = document.createElement("div");
+          Array.from(item.children).forEach((child) => {
+            const isThinkingBlock = child.className.includes(
+              CLAUDE_THINKING_BLOCK_CLASS
+            );
+            const isArtifactBlock =
+              (child.className.includes("pt-3") &&
+                child.className.includes("pb-3")) ||
+              child.querySelector(CLAUDE_ARTIFACT_BLOCK_CELL);
+
+            // Only consider non-thinking, non-artifact blocks
+            if (!isThinkingBlock && !isArtifactBlock) {
+              const contentGrid = child.querySelector(".grid-cols-1");
+              if (contentGrid) {
+                // We will use the existing TurndownService to process this content
+                claudeResponseContent.appendChild(contentGrid.cloneNode(true));
+              }
+            }
+          });
+          messageContentHtml = claudeResponseContent;
+          messageContentText = claudeResponseContent.innerText.trim();
+        }
+
+        if (messageContentText) {
+          const messageId = `${author}-${chatIndex}-${Date.now()}-${Math.random()
+            .toString(36)
+            .substring(2, 9)}`;
+
+          messages.push({
+            id: messageId,
+            author: author,
+            contentHtml: messageContentHtml,
+            contentText: messageContentText,
+            timestamp: new Date(),
+            originalIndex: chatIndex,
+          });
+
+          if (!isUser) chatIndex++;
+        }
+      });
+
+      const _parsedTitle = Utils.parseChatTitleAndTags(chatTitle);
+
+      return {
+        _raw_title: chatTitle,
+        title: _parsedTitle.title,
+        tags: _parsedTitle.tags,
+        author: CURRENT_PLATFORM,
+        messages: messages,
+        messageCount: messages.filter((m) => m.author === "user").length,
+        exportedAt: new Date(),
+        exporterVersion: EXPORTER_VERSION,
+        threadUrl: window.location.href,
+      };
+    },
+
+    /**
+     * Extracts chat data from Gemini's DOM structure.
+     * @param {Document} doc - The Document object.
+     * @returns {object|null} The standardized chat data, or null.
+     */
+    extractGeminiChatData(doc) {
       const messageItems = [
         ...doc.querySelectorAll(GEMINI_MESSAGE_ITEM_SELECTOR),
       ];
@@ -909,7 +753,7 @@
         _raw_title: title,
         title: _parsedTitle.title,
         tags: _parsedTitle.tags,
-        author: Utils.getPlatformPrefix(),
+        author: CURRENT_PLATFORM,
         messages: messages,
         messageCount: messages.filter((m) => m.author === "user").length, // Count user messages as questions
         exportedAt: new Date(),
@@ -919,18 +763,18 @@
     },
 
     /**
-     * Converts standardized conversation data to Markdown format.
-     * This function now expects a pre-filtered `conversationData`.
-     * @param {object} conversationData - The standardized conversation data (already filtered).
+     * Converts standardized chat data to Markdown format.
+     * This function now expects a pre-filtered `chatData`.
+     * @param {object} chatData - The standardized chat data (already filtered).
      * @param {TurndownService} turndownServiceInstance - Configured TurndownService.
      * @returns {{output: string, fileName: string}} Markdown string and filename.
      */
-    formatToMarkdown(conversationData, turndownServiceInstance) {
+    formatToMarkdown(chatData, turndownServiceInstance) {
       let toc = "";
       let content = "";
       let exportChatIndex = 0; // Initialize to 0 for sequential user message numbering
 
-      conversationData.messages.forEach((msg) => {
+      chatData.messages.forEach((msg) => {
         if (msg.author === "user") {
           exportChatIndex++; // Increment only for user messages
           const preview = Utils.truncate(
@@ -960,72 +804,55 @@
         // Removed the incorrect increment logic from here
       });
 
-      const localTime = Utils.formatLocalTime(conversationData.exportedAt);
+      const localTime = Utils.formatLocalTime(chatData.exportedAt);
 
-      const yaml = `---\ntitle: ${
-        conversationData.title
-      }\ntags: [${conversationData.tags.join(", ")}]\nauthor: ${
-        conversationData.author
-      }\ncount: ${
-        conversationData.messageCount
+      const yaml = `---\ntitle: ${chatData.title}\ntags: [${chatData.tags.join(
+        ", "
+      )}]\nauthor: ${chatData.author}\ncount: ${
+        chatData.messageCount
       }\nexporter: ${EXPORTER_VERSION}\ndate: ${localTime}\nurl: ${
-        conversationData.threadUrl
+        chatData.threadUrl
       }\n---\n`;
       const tocBlock = `## Table of Contents\n\n${toc.trim()}\n\n`;
 
       const finalOutput =
-        yaml +
-        `\n# ${conversationData.title}\n\n` +
-        tocBlock +
-        content.trim() +
-        "\n\n";
-
-      // const platformPrefix = Utils.getPlatformPrefix();
-      // const fileName = `${platformPrefix}_${Utils.slugify(
-      //   conversationData.title
-      // )}_${localTime}.md`;
+        yaml + `\n# ${chatData.title}\n\n` + tocBlock + content.trim() + "\n\n";
 
       const fileName = Utils.formatFileName(
         GM_getValue(GM_OUTPUT_FILE_FORMAT, OUTPUT_FILE_FORMAT_DEFAULT),
-        conversationData.title,
-        conversationData.tags,
+        chatData.title,
+        chatData.tags,
         "md"
       );
       return { output: finalOutput, fileName: fileName };
     },
 
     /**
-     * Converts standardized conversation data to JSON format.
-     * This function now expects a pre-filtered `conversationData`.
-     * @param {object} conversationData - The standardized conversation data (already filtered).
+     * Converts standardized chat data to JSON format.
+     * This function now expects a pre-filtered `chatData`.
+     * @param {object} chatData - The standardized chat data (already filtered).
      * @returns {{output: string, fileName: string}} JSON string and filename.
      */
-    formatToJSON(conversationData) {
+    formatToJSON(chatData) {
       const jsonOutput = {
-        title: conversationData.title,
-        tags: conversationData.tags,
-        author: conversationData.author,
-        count: conversationData.messageCount,
+        title: chatData.title,
+        tags: chatData.tags,
+        author: chatData.author,
+        count: chatData.messageCount,
         exporter: EXPORTER_VERSION,
-        date: conversationData.exportedAt.toISOString(),
-        url: conversationData.threadUrl,
-        messages: conversationData.messages.map((msg) => ({
+        date: chatData.exportedAt.toISOString(),
+        url: chatData.threadUrl,
+        messages: chatData.messages.map((msg) => ({
           id: msg.id.split("-").slice(0, 2).join("-"), // Keep the ID for reference in JSON
           author: msg.author,
           content: msg.contentText,
         })),
       };
 
-      // const localTime = Utils.formatLocalTime(conversationData.exportedAt);
-      // const platformPrefix = Utils.getPlatformPrefix();
-      // const fileName = `${platformPrefix}_${Utils.slugify(
-      //   conversationData.title
-      // )}_${localTime}.json`;
-
       const fileName = Utils.formatFileName(
         GM_getValue(GM_OUTPUT_FILE_FORMAT, OUTPUT_FILE_FORMAT_DEFAULT),
-        conversationData.title,
-        conversationData.tags,
+        chatData.title,
+        chatData.tags,
         "json"
       );
 
@@ -1036,16 +863,333 @@
     },
 
     /**
+     * This function setups the rules for turndownServiceInstance
+     * @param {TurndownService} turndownServiceInstance - Configured TurndownService.
+     */
+    setupTurndownRules(turndownServiceInstance) {
+      turndownServiceInstance.addRule("lineBreak", {
+        filter: "br",
+        replacement: () => "  \n",
+      });
+
+      turndownServiceInstance.addRule("heading", {
+        filter: ["h1", "h2", "h3", "h4", "h5", "h6"],
+        replacement: (content, node) => {
+          const hLevel = Number(node.nodeName.charAt(1));
+          return `\n\n${"#".repeat(hLevel)} ${content}\n\n`;
+        },
+      });
+
+      // Custom rule for list items to ensure proper nesting and markers
+      turndownServiceInstance.addRule("customLi", {
+        filter: "li",
+        replacement: function (content, node) {
+          let processedContent = content.trim();
+
+          // Heuristic: If content contains multiple lines and the second line
+          // looks like a list item, ensure a double newline for nested lists.
+          if (processedContent.length > 0) {
+            const lines = processedContent.split("\n");
+            if (lines.length > 1 && /^\s*[-*+]|^[0-9]+\./.test(lines[1])) {
+              processedContent = lines.join("\n\n").trim();
+            }
+          }
+
+          let listItemMarkdown;
+          if (node.parentNode.nodeName === "UL") {
+            let indent = "";
+            let liAncestorCount = 0;
+            let parent = node.parentNode;
+
+            // Calculate indentation for nested unordered lists
+            while (parent) {
+              if (parent.nodeName === "LI") {
+                liAncestorCount++;
+              }
+              parent = parent.parentNode;
+            }
+            for (let i = 0; i < liAncestorCount; i++) {
+              indent += "    "; // 4 spaces per nesting level
+            }
+            listItemMarkdown = `${indent}${turndownServiceInstance.options.bulletListMarker} ${processedContent}`;
+          } else if (node.parentNode.nodeName === "OL") {
+            // Get the correct index for ordered list items
+            const siblings = Array.from(node.parentNode.children).filter(
+              (child) => child.nodeName === "LI"
+            );
+            const index = siblings.indexOf(node);
+            listItemMarkdown = `${index + 1}. ${processedContent}`;
+          } else {
+            listItemMarkdown = processedContent; // Fallback
+          }
+          // Always add a newline after each list item for separation
+          return listItemMarkdown + "\n";
+        }.bind(turndownServiceInstance),
+      });
+
+      if (CURRENT_PLATFORM === CLAUDE) {
+        // This single rule handles the entire Claude code block structure.
+        turndownServiceInstance.addRule("claudeCodeBlock", {
+          filter: function (node, options) {
+            // Filter for the grandparent div of the pre element using more concise CSS selectors.
+            return (
+              node.nodeName === "DIV" &&
+              // Check for the language div (2nd child).
+              node.querySelector(":scope > div:nth-child(2)") &&
+              // Check for the code block div (3rd child) with a direct <pre> child.
+              node.querySelector(":scope > div:nth-child(3) > pre")
+            );
+          },
+          replacement: function (content, node) {
+            // Get the language from the second child div.
+            const languageNode = node.querySelector(
+              ":scope > div:nth-child(2)"
+            );
+            const language = languageNode
+              ? languageNode.textContent.trim().toLowerCase()
+              : "";
+
+            // Get the code content from the pre > code element within the third child div.
+            const codeNode = node.querySelector(
+              ":scope > div:nth-child(3) > pre > code"
+            );
+            if (!codeNode) return "";
+
+            const codeText = codeNode.textContent || "";
+
+            return "\n\n```" + language + "\n" + codeText + "\n```\n\n";
+          },
+        });
+      }
+
+      turndownServiceInstance.addRule("code", {
+        filter: "code",
+        replacement: (content, node) => {
+          if (node.parentNode.nodeName === "PRE") return content;
+          return `\`${content}\``;
+        },
+      });
+
+      // Rule for preformatted code blocks
+      turndownServiceInstance.addRule("pre", {
+        filter: "pre",
+        replacement: (content, node) => {
+          let lang = "";
+
+          // Attempt to find language for Gemini's code blocks
+          const geminiCodeBlockParent = node.closest(".code-block");
+          if (geminiCodeBlockParent) {
+            const geminiLanguageSpan = geminiCodeBlockParent.querySelector(
+              ".code-block-decoration span"
+            );
+            if (geminiLanguageSpan && geminiLanguageSpan.textContent.trim()) {
+              lang = geminiLanguageSpan.textContent.trim();
+            }
+          }
+
+          // Fallback to ChatGPT's language selector if Gemini's wasn't found
+          if (!lang) {
+            const chatgptLanguageDiv = node.querySelector(
+              ".flex.items-center.text-token-text-secondary"
+            );
+            if (chatgptLanguageDiv) {
+              lang = chatgptLanguageDiv.textContent.trim();
+            }
+          }
+
+          const codeElement = node.querySelector("code");
+          const codeText = codeElement ? codeElement.textContent.trim() : "";
+
+          // Ensure a blank line before the code section's language text if its parent is a list item
+          let prefix = "\n"; // Default prefix for code blocks
+          let prevSibling = node.previousElementSibling;
+
+          // Check for a specific pattern: <p> immediately followed by <pre> inside an <li>
+          if (prevSibling && prevSibling.nodeName === "P") {
+            let parentLi = prevSibling.closest("li");
+            if (parentLi && parentLi.contains(node)) {
+              // Ensure the <pre> is also a descendant of the same <li>
+              prefix = "\n\n"; // Add an extra newline for better separation
+            }
+          }
+
+          return `${prefix}\`\`\`${lang}\n${codeText}\n\`\`\`\n`;
+        },
+      });
+
+      turndownServiceInstance.addRule("strong", {
+        filter: ["strong", "b"],
+        replacement: (content) => `**${content}**`,
+      });
+
+      turndownServiceInstance.addRule("em", {
+        filter: ["em", "i"],
+        replacement: (content) => `_${content}_`,
+      });
+
+      turndownServiceInstance.addRule("blockQuote", {
+        filter: "blockquote",
+        replacement: (content) =>
+          content
+            .trim()
+            .split("\n")
+            .map((l) => `> ${l}`)
+            .join("\n"),
+      });
+
+      turndownServiceInstance.addRule("link", {
+        filter: "a",
+        replacement: (content, node) =>
+          `[${content}](${node.getAttribute("href")})`,
+      });
+
+      turndownServiceInstance.addRule("strikethrough", {
+        filter: (node) => node.nodeName === "DEL",
+        replacement: (content) => `~~${content}~~`,
+      });
+
+      // Rule for HTML tables to Markdown table format
+      turndownServiceInstance.addRule("table", {
+        filter: "table",
+        replacement: function (content, node) {
+          const headerRows = Array.from(node.querySelectorAll("thead tr"));
+          const bodyRows = Array.from(node.querySelectorAll("tbody tr"));
+          const footerRows = Array.from(node.querySelectorAll("tfoot tr"));
+
+          let allRowsContent = [];
+
+          const getRowCellsContent = (rowElement) => {
+            const cells = Array.from(rowElement.querySelectorAll("th, td"));
+            return cells.map((cell) =>
+              cell.textContent.replace(/\s+/g, " ").trim()
+            );
+          };
+
+          if (headerRows.length > 0) {
+            allRowsContent.push(getRowCellsContent(headerRows[0]));
+          }
+
+          bodyRows.forEach((row) => {
+            allRowsContent.push(getRowCellsContent(row));
+          });
+
+          footerRows.forEach((row) => {
+            allRowsContent.push(getRowCellsContent(row));
+          });
+
+          if (allRowsContent.length === 0) {
+            return "";
+          }
+
+          const isFirstRowAHeader = headerRows.length > 0;
+          const maxCols = Math.max(...allRowsContent.map((row) => row.length));
+
+          const paddedRows = allRowsContent.map((row) => {
+            const paddedRow = [...row];
+            while (paddedRow.length < maxCols) {
+              paddedRow.push("");
+            }
+            return paddedRow;
+          });
+
+          let markdownTable = "";
+
+          if (isFirstRowAHeader) {
+            markdownTable += "| " + paddedRows[0].join(" | ") + " |\n";
+            markdownTable += "|" + Array(maxCols).fill("---").join("|") + "|\n";
+            for (let i = 1; i < paddedRows.length; i++) {
+              markdownTable += "| " + paddedRows[i].join(" | ") + " |\n";
+            }
+          } else {
+            for (let i = 0; i < paddedRows.length; i++) {
+              markdownTable += "| " + paddedRows[i].join(" | ") + " |\n";
+              if (i === 0) {
+                markdownTable +=
+                  "|" + Array(maxCols).fill("---").join("|") + "|\n";
+              }
+            }
+          }
+
+          return markdownTable.trim();
+        },
+      });
+
+      // Universal rule for paragraph tags with a fix for list item newlines
+      turndownServiceInstance.addRule("paragraph", {
+        filter: "p",
+        replacement: (content, node) => {
+          if (!content.trim()) return ""; // Ignore empty paragraphs
+
+          let currentNode = node.parentNode;
+          while (currentNode) {
+            // If inside TH or TR (table headers/rows), suppress newlines.
+            if (PARAGRAPH_FILTER_PARENT_NODES.includes(currentNode.nodeName)) {
+              return content;
+            }
+            // If inside an LI (list item), add a single newline for proper separation.
+            if (currentNode.nodeName === "LI") {
+              return content + "\n";
+            }
+            currentNode = currentNode.parentNode;
+          }
+          // For all other cases, add double newlines for standard paragraph separation.
+          return `\n\n${content}\n\n`;
+        },
+      });
+
+      // ChatGPT-specific rules for handling unique elements/classes
+      if (CURRENT_PLATFORM === CHATGPT) {
+        turndownServiceInstance.addRule("popup-div", {
+          filter: (node) =>
+            node.nodeName === "DIV" &&
+            node.classList.contains(CHATGPT_POPUP_DIV_CLASS),
+          replacement: (content) => {
+            // Convert HTML content of popups to a code block
+            const textWithLineBreaks = content
+              .replace(/<br\s*\/?>/gi, "\n")
+              .replace(/<\/(p|div|h[1-6]|ul|ol|li)>/gi, "\n")
+              .replace(/<(?:p|div|h[1-6]|ul|ol|li)[^>]*>/gi, "\n")
+              .replace(/<\/?[^>]+(>|$)/g, "")
+              .replace(/\n+/g, "\n");
+            return "\n```\n" + textWithLineBreaks + "\n```\n";
+          },
+        });
+        turndownServiceInstance.addRule("buttonWithSpecificClass", {
+          filter: (node) =>
+            node.nodeName === "BUTTON" &&
+            node.classList.contains(CHATGPT_BUTTON_SPECIFIC_CLASS),
+          replacement: (content) =>
+            content.trim() ? `__${content}__\n\n` : "",
+        });
+        turndownServiceInstance.addRule("remove-img", {
+          filter: "img",
+          replacement: () => "", // Remove image tags
+        });
+      }
+
+      // Gemini specific rule to remove language labels from being processed as content
+      if (CURRENT_PLATFORM === GEMINI) {
+        turndownServiceInstance.addRule("geminiCodeLanguageLabel", {
+          filter: (node) =>
+            node.nodeName === "SPAN" &&
+            node.closest(".code-block-decoration") &&
+            node.textContent.trim().length > 0, // Ensure it's not an an empty span
+          replacement: () => "", // Replace with empty string
+        });
+      }
+    },
+
+    /**
      * Main export orchestrator. Extracts data, configures Turndown, and formats.
      * This function now filters messages based on _selectedMessageIds and visibility.
      * @param {string} format - The desired output format ('markdown' or 'json').
      */
     initiateExport(format) {
-      // Use the _currentConversationData that matches the outline's IDs
-      const rawConversationData = ChatExporter._currentConversationData;
+      // Use the _currentChatData that matches the outline's IDs
+      const rawChatData = ChatExporter._currentChatData;
       let turndownServiceInstance = null;
 
-      if (!rawConversationData || rawConversationData.messages.length === 0) {
+      if (!rawChatData || rawChatData.messages.length === 0) {
         alert("No messages found to export.");
         return;
       }
@@ -1086,12 +1230,12 @@
           }
         });
 
-        rawConversationData.messages.forEach((msg, index) => {
+        rawChatData.messages.forEach((msg, index) => {
           if (msg.author === "ai") {
             let prevUserMessageId = null;
             for (let i = index - 1; i >= 0; i--) {
-              if (rawConversationData.messages[i].author === "user") {
-                prevUserMessageId = rawConversationData.messages[i].id;
+              if (rawChatData.messages[i].author === "user") {
+                prevUserMessageId = rawChatData.messages[i].id;
                 break;
               }
             }
@@ -1107,7 +1251,7 @@
       // --- End Refresh ---
 
       // --- Filter messages based on selection ---
-      const filteredMessages = rawConversationData.messages.filter((msg) =>
+      const filteredMessages = rawChatData.messages.filter((msg) =>
         ChatExporter._selectedMessageIds.has(msg.id)
       );
 
@@ -1118,10 +1262,10 @@
         return;
       }
 
-      // Create a new conversationData object for the filtered export
+      // Create a new chatData object for the filtered export
       // Also, re-calculate messageCount for the filtered set
-      const conversationDataForExport = {
-        ...rawConversationData,
+      const chatDataForExport = {
+        ...rawChatData,
         messages: filteredMessages,
         messageCount: filteredMessages.filter((m) => m.author === "user")
           .length,
@@ -1135,66 +1279,19 @@
       if (format === "markdown") {
         turndownServiceInstance = new TurndownService();
 
-        // ChatGPT-specific rules for handling unique elements/classes
-        if (
-          CHATGPT_HOSTNAMES.some((host) =>
-            window.location.hostname.includes(host)
-          )
-        ) {
-          turndownServiceInstance.addRule("popup-div", {
-            filter: (node) =>
-              node.nodeName === "DIV" &&
-              node.classList.contains(CHATGPT_POPUP_DIV_CLASS),
-            replacement: (content) => {
-              // Convert HTML content of popups to a code block
-              const textWithLineBreaks = content
-                .replace(/<br\s*\/?>/gi, "\n")
-                .replace(/<\/(p|div|h[1-6]|ul|ol|li)>/gi, "\n")
-                .replace(/<(?:p|div|h[1-6]|ul|ol|li)[^>]*>/gi, "\n")
-                .replace(/<\/?[^>]+(>|$)/g, "")
-                .replace(/\n+/g, "\n");
-              return "\n```\n" + textWithLineBreaks + "\n```\n";
-            },
-          });
-          turndownServiceInstance.addRule("buttonWithSpecificClass", {
-            filter: (node) =>
-              node.nodeName === "BUTTON" &&
-              node.classList.contains(CHATGPT_BUTTON_SPECIFIC_CLASS),
-            replacement: (content) =>
-              content.trim() ? `__${content}__\n\n` : "",
-          });
-          turndownServiceInstance.addRule("remove-img", {
-            filter: "img",
-            replacement: () => "", // Remove image tags
-          });
-        }
+        ChatExporter.setupTurndownRules(turndownServiceInstance);
 
-        // Gemini specific rule to remove language labels from being processed as content
-        if (
-          GEMINI_HOSTNAMES.some((host) =>
-            window.location.hostname.includes(host)
-          )
-        ) {
-          turndownServiceInstance.addRule("geminiCodeLanguageLabel", {
-            filter: (node) =>
-              node.nodeName === "SPAN" &&
-              node.closest(".code-block-decoration") &&
-              node.textContent.trim().length > 0, // Ensure it's not an an empty span
-            replacement: () => "", // Replace with empty string
-          });
-        }
-
-        // Pass the filtered conversation data to formatToMarkdown
+        // Pass the filtered chat data to formatToMarkdown
         const markdownResult = ChatExporter.formatToMarkdown(
-          conversationDataForExport,
+          chatDataForExport,
           turndownServiceInstance
         );
         fileOutput = markdownResult.output;
         fileName = markdownResult.fileName;
         mimeType = "text/markdown;charset=utf-8";
       } else if (format === "json") {
-        // Pass the filtered conversation data to formatToJSON
-        const jsonResult = ChatExporter.formatToJSON(conversationDataForExport);
+        // Pass the filtered chat data to formatToJSON
+        const jsonResult = ChatExporter.formatToJSON(chatDataForExport);
         fileOutput = jsonResult.output;
         fileName = jsonResult.fileName;
         mimeType = "application/json;charset=utf-8";
@@ -1228,24 +1325,18 @@
       let targetElement = null;
       let width = 0;
 
-      if (
-        CHATGPT_HOSTNAMES.some((host) =>
-          window.location.hostname.includes(host)
-        )
-      ) {
+      if (CURRENT_PLATFORM === CHATGPT) {
         // Try to find the specific input container for ChatGPT
         targetElement = document.querySelector(
           "form > div.relative.flex.h-full.max-w-full.flex-1.flex-col"
         );
         if (!targetElement) {
-          // Fallback to a broader conversation content container if the specific input container is not found
+          // Fallback to a broader chat content container if the specific input container is not found
           targetElement = document.querySelector(
             "div.w-full.md\\:max-w-2xl.lg\\:max-w-3xl.xl\\:max-w-4xl.flex-shrink-0.px-4"
           );
         }
-      } else if (
-        GEMINI_HOSTNAMES.some((host) => window.location.hostname.includes(host))
-      ) {
+      } else if (CURRENT_PLATFORM === GEMINI) {
         // Try to find the specific input container for Gemini
         targetElement = document.querySelector(
           "gb-chat-input-textarea-container"
@@ -1376,7 +1467,7 @@
 
     /**
      * Generates and updates the content of the outline div.
-     * This function should be called whenever the conversation data changes.
+     * This function should be called whenever the chat data changes.
      */
     generateOutlineContent() {
       const outlineContainer = document.querySelector(
@@ -1384,55 +1475,54 @@
       );
       if (!outlineContainer) return;
 
-      // Extract fresh conversation data
-      const currentHost = window.location.hostname; // Define currentHost here
-      let freshConversationData = null;
-      if (CHATGPT_HOSTNAMES.some((host) => currentHost.includes(host))) {
-        freshConversationData =
-          ChatExporter.extractChatGPTConversationData(document);
-      } else if (GEMINI_HOSTNAMES.some((host) => currentHost.includes(host))) {
-        freshConversationData =
-          ChatExporter.extractGeminiConversationData(document);
-      } else {
-        outlineContainer.style.display = "none"; // Hide if not supported
-        return;
+      // Extract fresh chat data
+      let freshChatData = null;
+      switch (CURRENT_PLATFORM) {
+        case CHATGPT:
+          freshChatData = ChatExporter.extractChatGPTChatData(document);
+          break;
+        case GEMINI:
+          freshChatData = ChatExporter.extractGeminiChatData(document);
+          break;
+        case CLAUDE:
+          freshChatData = ChatExporter.extractClaudeChatData(document);
+          break;
+        default:
+          outlineContainer.style.display = "none"; // Hide if not supported
+          return;
       }
 
-      // Check if conversation data has changed significantly to warrant a re-render
+      // Check if chat data has changed significantly to warrant a re-render
       // Compare message count and content of the last few messages as a heuristic
       // This is to avoid regenerating the outline on every minor DOM change.
       const hasDataChanged =
-        !ChatExporter._currentConversationData || // No previous data
-        !freshConversationData || // No new data
-        freshConversationData._raw_title !==
-          ChatExporter._currentConversationData._raw_title ||
-        freshConversationData.messages.length !==
-          ChatExporter._currentConversationData.messages.length ||
-        (freshConversationData.messages.length > 0 &&
-          ChatExporter._currentConversationData.messages.length > 0 &&
-          freshConversationData.messages[
-            freshConversationData.messages.length - 1
-          ].contentText !==
-            ChatExporter._currentConversationData.messages[
-              ChatExporter._currentConversationData.messages.length - 1
+        !ChatExporter._currentChatData || // No previous data
+        !freshChatData || // No new data
+        freshChatData._raw_title !== ChatExporter._currentChatData._raw_title ||
+        freshChatData.messages.length !==
+          ChatExporter._currentChatData.messages.length ||
+        (freshChatData.messages.length > 0 &&
+          ChatExporter._currentChatData.messages.length > 0 &&
+          freshChatData.messages[freshChatData.messages.length - 1]
+            .contentText !==
+            ChatExporter._currentChatData.messages[
+              ChatExporter._currentChatData.messages.length - 1
             ].contentText);
 
       if (!hasDataChanged) {
         // If data hasn't changed, just ensure visibility based on message presence
         outlineContainer.style.display =
-          freshConversationData && freshConversationData.messages.length > 0
-            ? "flex"
-            : "none";
+          freshChatData && freshChatData.messages.length > 0 ? "flex" : "none";
         return; // No need to regenerate content
       }
 
-      // Update stored conversation data
-      ChatExporter._currentConversationData = freshConversationData;
+      // Update stored chat data
+      ChatExporter._currentChatData = freshChatData;
 
       // Hide if no messages after update
       if (
-        !ChatExporter._currentConversationData ||
-        ChatExporter._currentConversationData.messages.length === 0
+        !ChatExporter._currentChatData ||
+        ChatExporter._currentChatData.messages.length === 0
       ) {
         outlineContainer.style.display = "none";
         return;
@@ -1468,8 +1558,8 @@
 
       const titleDiv = document.createElement("div");
       Utils.applyStyles(titleDiv, OUTLINE_TITLE_PROPS);
-      titleDiv.textContent = freshConversationData.title || DEFAULT_CHAT_TITLE;
-      titleDiv.title = "tags: " + freshConversationData.tags.join(", ");
+      titleDiv.textContent = freshChatData.title || DEFAULT_CHAT_TITLE;
+      titleDiv.title = "tags: " + freshChatData.tags.join(", ");
       titleDiv.id = OUTLINE_TITLE_ID;
       outlineContainer.appendChild(titleDiv);
 
@@ -1564,7 +1654,7 @@
       // Store references to the actual itemDiv elements for easy access during search
       const outlineItemElements = new Map(); // Map<messageId, itemDiv>
 
-      ChatExporter._currentConversationData.messages.forEach((msg, index) => {
+      ChatExporter._currentChatData.messages.forEach((msg, index) => {
         if (msg.author === "user") {
           userQuestionCount++; // Increment 'y'
           const itemDiv = document.createElement("div");
@@ -1616,10 +1706,9 @@
 
           itemText.onclick = () => {
             // Find the original message element using the stored contentHtml reference
-            const messageElement =
-              ChatExporter._currentConversationData.messages.find(
-                (m) => m.id === msg.id
-              )?.contentHtml;
+            const messageElement = ChatExporter._currentChatData.messages.find(
+              (m) => m.id === msg.id
+            )?.contentHtml;
 
             if (messageElement) {
               messageElement.scrollIntoView({
@@ -1638,13 +1727,11 @@
         } else {
           // For AI responses, if they follow a selected user message, also add them to selected IDs
           // This is a pre-population, actual selection is determined on export.
-          const prevUserMessage =
-            ChatExporter._currentConversationData.messages.find(
-              (m, i) =>
-                i <
-                  ChatExporter._currentConversationData.messages.indexOf(msg) &&
-                m.author === "user"
-            );
+          const prevUserMessage = ChatExporter._currentChatData.messages.find(
+            (m, i) =>
+              i < ChatExporter._currentChatData.messages.indexOf(msg) &&
+              m.author === "user"
+          );
           if (
             prevUserMessage &&
             ChatExporter._selectedMessageIds.has(prevUserMessage.id)
@@ -1710,7 +1797,7 @@
           }
         }
 
-        const messages = ChatExporter._currentConversationData.messages;
+        const messages = ChatExporter._currentChatData.messages;
         const userMessageMap = new Map();
 
         // Group user messages with their immediate AI responses
@@ -1971,15 +2058,11 @@
     },
 
     /**
-     * Attempts to auto-scroll the Gemini conversation to the top to load all messages.
+     * Attempts to auto-scroll the Gemini chat to the top to load all messages.
      * This function uses an iterative approach to handle dynamic loading.
      */
     autoScrollToTop: async function () {
-      if (
-        !GEMINI_HOSTNAMES.some((host) =>
-          window.location.hostname.includes(host)
-        )
-      ) {
+      if (CURRENT_PLATFORM !== GEMINI) {
         // console.log("autoScrollToTop: Not on a Gemini hostname. Returning early.");
         return;
       }
@@ -2013,7 +2096,7 @@
       }
 
       // UIManager.showAlert(
-      //   "Auto-scrolling to load entire conversation... Please wait."
+      //   "Auto-scrolling to load entire chat... Please wait."
       // );
 
       const AUTOSCROLL_MAT_PROGRESS_BAR_POLL_INTERVAL = 50;
@@ -2141,10 +2224,9 @@
           continue; // Continue loop to try scrolling again
         }
 
-        const currentConversationData =
-          ChatExporter.extractGeminiConversationData(document);
-        const currentMessageCount = currentConversationData
-          ? currentConversationData.messages.length
+        const currentChatData = ChatExporter.extractGeminiChatData(document);
+        const currentMessageCount = currentChatData
+          ? currentChatData.messages.length
           : 0;
 
         if (currentMessageCount > previousMessageCount) {
@@ -2155,7 +2237,7 @@
           // If we had messages before, and now no new ones, it means we reached the top.
           // console.log("autoScrollToTop: No NEW messages detected after this load cycle. Checking for termination conditions.");
           if (previousMessageCount !== -1) {
-            // console.log("autoScrollToTop: Assuming end of conversation due to no new messages after loading.");
+            // console.log("autoScrollToTop: Assuming end of chat due to no new messages after loading.");
             break;
           }
         }
@@ -2165,7 +2247,7 @@
 
       // console.log("autoScrollToTop: Auto-scroll process complete. Final message count:", previousMessageCount);
       // UIManager.showAlert(
-      //   "Auto-scroll complete. You can now export your conversation."
+      //   "Auto-scroll complete. You can now export your chat."
       // );
       UIManager.addOutlineControls();
     },
@@ -2213,15 +2295,13 @@
         UIManager.addOutlineControls();
       });
 
-      // Observe a broad area that includes chat messages and where new messages are added
-      const chatContainerSelector = CHATGPT_HOSTNAMES.some((h) =>
-        window.location.hostname.includes(h)
-      )
-        ? "main" // ChatGPT's main content area
-        : "#__next"; // Gemini's root container, or a more specific chat area if found
-
-      const targetNode =
-        document.querySelector(chatContainerSelector) || document.body;
+      // Selector that includes chat messages and where new messages are added
+      let targetNode = null;
+      if (CURRENT_PLATFORM === GEMINI) {
+        targetNode = document.querySelector("#__next") || document.body;
+      } else {
+        targetNode = document.querySelector("main") || document.body;
+      }
 
       observer.observe(targetNode, {
         childList: true,
@@ -2231,9 +2311,7 @@
 
       // Additionally, for Gemini, listen for scroll events on the window or a specific scrollable div
       // if MutationObserver isn't sufficient for detecting all content loads.
-      if (
-        GEMINI_HOSTNAMES.some((host) => window.location.hostname.includes(host))
-      ) {
+      if (CURRENT_PLATFORM === GEMINI) {
         let scrollTimeout;
         window.addEventListener(
           "scroll",
@@ -2241,15 +2319,14 @@
             clearTimeout(scrollTimeout);
             scrollTimeout = setTimeout(() => {
               // Only regenerate if title or tags are different or current data count is less than actual count (implies more loaded)
-              const newConversationData =
-                ChatExporter.extractGeminiConversationData(document);
+              const newChatData = ChatExporter.extractGeminiChatData(document);
               if (
-                newConversationData &&
-                ChatExporter._currentConversationData &&
-                (newConversationData._raw_title !==
-                  ChatExporter._currentConversationData._raw_title ||
-                  newConversationData.messages.length >
-                    ChatExporter._currentConversationData.messages.length)
+                newChatData &&
+                ChatExporter._currentChatData &&
+                (newChatData._raw_title !==
+                  ChatExporter._currentChatData._raw_title ||
+                  newChatData.messages.length >
+                    ChatExporter._currentChatData.messages.length)
               ) {
                 UIManager.addOutlineControls(); // Regenerate outline
               }
@@ -2316,11 +2393,7 @@
           UIManager.addOutlineControls(); // Add outline after buttons
           // New: Initiate auto-scroll for Gemini after controls are set up
           // console.log("Checking if current host is a Gemini hostname...");
-          if (
-            GEMINI_HOSTNAMES.some((host) =>
-              window.location.hostname.includes(host)
-            )
-          ) {
+          if (CURRENT_PLATFORM === GEMINI) {
             setTimeout(() => {
               // console.log("Delayed auto-scroll initiated."); // Debug log
               UIManager.autoScrollToTop(); // This call will now use the async logic below
@@ -2336,11 +2409,7 @@
             UIManager.addOutlineControls(); // Add outline after buttons
             // New: Initiate auto-scroll for Gemini after controls are set up
             // console.log("Checking if current host is a Gemini hostname (from DOMContentLoaded).");
-            if (
-              GEMINI_HOSTNAMES.some((host) =>
-                window.location.hostname.includes(host)
-              )
-            ) {
+            if (CURRENT_PLATFORM === GEMINI) {
               setTimeout(() => {
                 // console.log("Delayed auto-scroll initiated (from DOMContentLoaded)."); // Debug log
                 UIManager.autoScrollToTop(); // This call will now use the async logic below

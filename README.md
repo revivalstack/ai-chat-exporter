@@ -1,8 +1,15 @@
-# ChatGPT / Gemini AI Chat Exporter by RevivalStack (v2.5.0)
+# ChatGPT / Claude / Gemini AI Chat Exporter by RevivalStack (v2.5.0)
 
-**ChatGPT / Gemini AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from both **ChatGPT** and **Google Gemini** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
+**ChatGPT / Claude / Gemini AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from **ChatGPT**, **Claude**, and **Google Gemini** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
 
 ![ChatGPT / Gemini AI Chat Exporter](images/chatgpt-gemini-ai-exporter.png)
+
+## What's New in v2.6.0?
+
+This version introduces support for the Claude platform and includes several refinements.
+
+- **Claude Support**: Full support for exporting chats from Claude.
+- **Robust Code Block Handling**: A specialized `turndownService` rule has been implemented to correctly handle and format Claude's unique code block structure, ensuring the language label is properly included in the Markdown output.
 
 ## What's New in v2.5.0?
 
