@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT / Claude / Copilot / Gemini AI Chat Exporter by RevivalStack
 // @namespace    https://github.com/revivalstack/chatgpt-exporter
-// @version      2.7.0
+// @version      2.7.1
 // @description  Export your ChatGPT, Claude, Copilot or Gemini chat into a properly and elegantly formatted Markdown or JSON.
 // @author       Mic Mejia (Refactored by Google Gemini)
 // @homepage     https://github.com/micmejia
@@ -19,7 +19,7 @@
   "use strict";
 
   // --- Global Constants ---
-  const EXPORTER_VERSION = "2.7.0";
+  const EXPORTER_VERSION = "2.7.1";
   const EXPORT_CONTAINER_ID = "export-controls-container";
   const OUTLINE_CONTAINER_ID = "export-outline-container"; // ID for the outline div
   const DOM_READY_TIMEOUT = 1000;
@@ -237,7 +237,8 @@
 
   const CLAUDE = "claude";
   const CLAUDE_HOSTNAMES = ["claude.ai"];
-  const CLAUDE_MESSAGE_SELECTOR = ".font-claude-message, .font-user-message";
+  const CLAUDE_MESSAGE_SELECTOR =
+    ".font-claude-message:not(#markdown-artifact), .font-user-message";
   const CLAUDE_USER_MESSAGE_CLASS = "font-user-message";
   const CLAUDE_THINKING_BLOCK_CLASS = "transition-all";
   const CLAUDE_ARTIFACT_BLOCK_CELL = ".artifact-block-cell";
@@ -1121,7 +1122,7 @@
               // Check for the language div (2nd child).
               node.querySelector(":scope > div:nth-child(2)") &&
               // Check for the code block div (3rd child) with a direct <pre> child.
-              node.querySelector(":scope > div:nth-child(3) > pre")
+              node.querySelector(":scope > div:nth-child(3) > pre > code")
             );
           },
           replacement: function (content, node) {
@@ -1182,6 +1183,7 @@
           }
 
           const codeElement = node.querySelector("code");
+          if (!codeElement) return content;
           const codeText = codeElement ? codeElement.textContent.trim() : "";
 
           // Ensure a blank line before the code section's language text if its parent is a list item

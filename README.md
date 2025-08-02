@@ -1,4 +1,4 @@
-# ChatGPT-Claude-Copilot-Gemini AI Chat Exporter by RevivalStack (v2.7.0)
+# ChatGPT-Claude-Copilot-Gemini AI Chat Exporter by RevivalStack (v2.7.1)
 
 **ChatGPT-Claude-Copilot-Gemini AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from **ChatGPT**, **Claude**, **Copilot**, and **Google Gemini** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
 
@@ -43,7 +43,7 @@ This version introduces significant enhancements focused on customization, outpu
 - **Markdown Conversion**: Converts your chat conversation into a properly and elegantly formatted Markdown, ensuring accurate rendering of text, code blocks, tables, and especially **correct newlines within list items**.
   - **Table of Contents (TOC)**: Automatically generates a TOC linking to each message pair (user question + AI response) within the Markdown export.
   - **Back to Top**: Allows quick navigation through a "Back to Top" link after each AI response in the Markdown export.
-  - **YAML Front Matter**: Includes comprehensive metadata like thread name, message count, exporter version, export timestamp, and the original chat thread URL.
+  - **YAML Front Matter**: Includes comprehensive metadata like title, tags, author, message count, exporter version, date, and the original chat thread URL.
 - **JSON Export**: Option to export conversations as a structured JSON file, including message IDs, authors, and content.
 - **Export Button**: A floating "Export Chat" button for easy downloading of the conversation as a `.md` or `.json` file.
 - **Floating Chat Outline with Selective Export**: A new, collapsible floating panel that provides an outline of all questions and responses in the conversation. This allows for:
@@ -77,13 +77,13 @@ This version introduces significant enhancements focused on customization, outpu
 
 ### via Greasy Fork
 
-- [Greasy Fork script](https://greasyfork.org/en/scripts/541051-chatgpt-gemini-ai-chat-exporter-by-revivalstack)
+- [Greasy Fork script](https://greasyfork.org/en/scripts/541051-chatgpt-claude-copilot-gemini-ai-chat-exporter-by-revivalstack)
 
 ## Export Format
 
 The Markdown export includes:
 
-1.  **YAML Front Matter** with thread metadata.
+1.  **YAML Front Matter** with chat metadata.
 2.  **Table of Contents** linking to each user question and AI response pair.
 3.  **Markdown Content** of the conversation, including formatted messages, code blocks, and links.
 
