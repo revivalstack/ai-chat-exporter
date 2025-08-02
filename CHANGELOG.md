@@ -1,3 +1,9 @@
+## 2.7.1 (2025-08-02)
+
+### Fix
+
+- fix handling of claude <pre> sections and artifact blocks
+
 ## 2.7.0 (2025-08-02)
 
 ### Feat
