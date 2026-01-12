@@ -2625,6 +2625,34 @@
     },
 
     /**
+     * Sets up keyboard shortcuts for exporting.
+     * Default: Alt + M for Markdown, Alt + J for JSON.
+     */
+    setupShortcuts() {
+      document.addEventListener("keydown", (e) => {
+        // Check if the user is typing in an input field (search box, chat input, etc.)
+        const isInput =
+          e.target.tagName === "INPUT" ||
+          e.target.tagName === "TEXTAREA" ||
+          e.target.isContentEditable;
+
+        if (isInput) return; // Do not trigger if user is typing
+
+        // Shortcut: Alt + M -> Export Markdown
+        if (e.altKey && e.code === "KeyM") {
+          e.preventDefault();
+          ChatExporter.initiateExport("markdown");
+        }
+
+        // Shortcut: Alt + J -> Export JSON
+        if (e.altKey && e.code === "KeyJ") {
+          e.preventDefault();
+          ChatExporter.initiateExport("json");
+        }
+      });
+    },
+
+    /**
      * Initializes the UI components by adding controls and setting up the observer.
      */
     init() {
@@ -2633,6 +2661,8 @@
         OUTLINE_COLLAPSED_STATE_KEY
       );
       UIManager._outlineIsCollapsed = storedCollapsedState === "true";
+
+      UIManager.setupShortcuts();
 
       // Add controls after DOM is ready
       if (
