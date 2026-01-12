@@ -1534,7 +1534,7 @@
         width: 8px;
         background-color: #f1f1f1; /* Light track color */
       }
-      
+
       #${OUTLINE_CONTAINER_ID} ::-webkit-scrollbar-thumb {
         background-color: #c1c1c1; /* Light thumb color */
         border-radius: 4px;
@@ -2306,195 +2306,112 @@
     /**
      * Attempts to auto-scroll the Gemini chat to the top to load all messages.
      * This function uses an iterative approach to handle dynamic loading.
+     * Includes checks to avoid interrupting the user if they are already reading.
      */
     autoScrollToTop: async function () {
-      if (CURRENT_PLATFORM !== GEMINI) {
-        // console.log("autoScrollToTop: Not on a Gemini hostname. Returning early.");
-        return;
-      }
+      if (CURRENT_PLATFORM !== GEMINI) return;
 
-      // Track the current URL to avoid re-scrolling the same chat repeatedly
-      const currentUrl = window.location.href;
+      // 1. Sanitize the URL to ignore minor parameter changes (like ?ref=...)
+      // This prevents triggers when Gemini just tweaks the query string.
+      const currentUrlPath = window.location.origin + window.location.pathname;
 
-      // New: Check if we have already effectively started auto-scrolling for this URL.
+      // 2. Check if we already ffectively started auto-scrolling for this chat session
       // UIManager._lastProcessedChatUrl will be null initially, or explicitly reset by handleUrlChange for new URLs.
       // It will be set to currentUrl *after* the initial message element is found.
-      if (UIManager._lastProcessedChatUrl === currentUrl) {
-        console.log(
-          "Auto-scroll already initiated or completed for this URL. Skipping."
-        );
+
+      if (UIManager._lastProcessedChatUrl === currentUrlPath) {
+        // console.log("Auto-scroll skipped: Chat already processed.");
         return;
       }
-
-      // console.log(`Auto-scroll triggered for new URL: ${currentUrl}`);
 
       let scrollableElement =
-        document.querySelector('[data-test-id="chat-history-container"]') || // **PRIMARY TARGET (CONFIRMED BY LOGS)**
-        document.querySelector("#chat-history") || // Fallback to chat history div by ID
-        document.querySelector("main") || // Fallback to main element
-        document.documentElement; // Final fallback to the document's root element
+        document.querySelector('[data-test-id="chat-history-container"]') ||
+        document.querySelector("#chat-history") ||
+        document.querySelector("main") ||
+        document.documentElement;
 
-      if (!scrollableElement) {
-        // UIManager.showAlert(
-        //   "Error: Could not find chat scroll area. Auto-scroll failed."
-        // );
+      if (!scrollableElement) return;
+
+      // --- CRITICAL FIX: ABORT IF USER IS ACTIVE ---
+      // If the user has scrolled down more than 100px, assume they are interacting
+      // and do NOT interrupt them.
+      if (scrollableElement.scrollTop > 100) {
+        console.log("User is active (scrolled down). Aborting auto-scroll.");
+        // Mark as processed so we don't try again for this specific session
+        UIManager._lastProcessedChatUrl = currentUrlPath;
         return;
       }
+      // ---------------------------------------------
 
-      // UIManager.showAlert(
-      //   "Auto-scrolling to load entire chat... Please wait."
-      // );
+      // Mark as processed immediately to prevent race conditions
+      UIManager._lastProcessedChatUrl = currentUrlPath;
 
-      const AUTOSCROLL_MAT_PROGRESS_BAR_POLL_INTERVAL = 50;
-      const AUTOSCROLL_MAT_PROGRESS_BAR_APPEAR_TIMEOUT = 3000;
-      const AUTOSCROLL_MAT_PROGRESS_BAR_DISAPPEAR_TIMEOUT = 5000;
+      // Initialize the history observer if we haven't yet
+      if (!UIManager._initialListenersAttached) {
+        UIManager.initUrlChangeObserver();
+        UIManager._initialListenersAttached = true;
+      }
+
       const AUTOSCROLL_REPEAT_DELAY = 500;
       const AUTOSCROLL_MAX_RETRY = 3;
-      const MESSAGE_ELEMENT_APPEAR_TIMEOUT = 5000;
-
-      let previousMessageCount = -1;
-      let retriesForProgressBar = 0;
-
       const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-      const waitForElementToAppear = async (
-        selector,
-        timeoutMs,
-        checkInterval = AUTOSCROLL_MAT_PROGRESS_BAR_POLL_INTERVAL
-      ) => {
-        const startTime = Date.now();
-        return new Promise((resolve) => {
-          const interval = setInterval(() => {
-            const element = document.querySelector(selector);
-            if (element) {
-              clearInterval(interval);
-              resolve(element);
-            } else if (Date.now() - startTime > timeoutMs) {
-              clearInterval(interval);
-              resolve(null);
-            }
-          }, checkInterval);
-        });
+      // Wait for the chat to actually render
+      const waitForElement = async (selector, timeout) => {
+        const start = Date.now();
+        while (Date.now() - start < timeout) {
+          if (document.querySelector(selector)) return document.querySelector(selector);
+          await delay(50);
+        }
+        return null;
       };
 
-      const waitForElementToDisappear = async (
-        selector,
-        timeoutMs,
-        checkInterval = AUTOSCROLL_MAT_PROGRESS_BAR_POLL_INTERVAL
-      ) => {
-        const startTime = Date.now();
-        return new Promise((resolve) => {
-          const interval = setInterval(() => {
-            const element = document.querySelector(selector);
-            if (
-              !element ||
-              (element.offsetWidth === 0 && element.offsetHeight === 0)
-            ) {
-              clearInterval(interval);
-              resolve(true);
-            } else if (Date.now() - startTime > timeoutMs) {
-              clearInterval(interval);
-              console.warn(
-                `waitForElementToDisappear: Timeout waiting for '${selector}' to disappear.`
-              );
-              resolve(false);
-            }
-          }, checkInterval);
-        });
-      };
+      const initialMessage = await waitForElement(GEMINI_MESSAGE_ITEM_SELECTOR, 5000);
+      if (!initialMessage) return;
 
-      // --- Wait for initial chat messages to appear ---
-      // This is crucial for new chat loads from sidebar clicks.
-      // console.log("Waiting for initial chat message elements...");
-      const initialMessageElement = await waitForElementToAppear(
-        GEMINI_MESSAGE_ITEM_SELECTOR,
-        MESSAGE_ELEMENT_APPEAR_TIMEOUT
-      );
+      let retries = 0;
+      let previousMessageCount = -1;
 
-      if (!initialMessageElement) {
-        // UIManager.showAlert(
-        //   "Timeout waiting for chat messages to appear. Auto-scroll cannot proceed."
-        // );
-        console.error(
-          "Initial chat message elements did not appear within timeout."
-        );
-        // If initial messages don't appear, this URL was not successfully processed for auto-scroll.
-        // So, reset _lastProcessedChatUrl to null to allow a retry or a different trigger for this URL.
-        UIManager._lastProcessedChatUrl = null; // Add this line
-        return;
-      }
-      // console.log("Initial chat message elements found. Starting scroll loop.");
-
-      // Mark this URL as processed *only after* initial messages are found.
-      // This ensures that autoScrollToTop will proceed if called for a new URL,
-      // and will block subsequent calls for the *same* URL until _lastProcessedChatUrl is reset by handleUrlChange.
-      UIManager._lastProcessedChatUrl = currentUrl; // Move this line from the beginning to here.
-
-      // --- IMPORTANT: Attach URL change listeners here after initial chat message elements appears ---
-      if (!UIManager._initialListenersAttached) {
-        // Only attach them once
-        UIManager.initUrlChangeObserver();
-        UIManager._initialListenersAttached = true; // Mark that they are attached
-      }
-
+      // Loop to pull older messages until we hit the top
       while (true) {
+        // Safety Break: If user scrolls down *during* the loop, stop immediately.
+        if (scrollableElement.scrollTop > 300) {
+            console.log("User interrupted scroll. Stopping.");
+            break;
+        }
+
         scrollableElement.scrollTop = 0;
-        await delay(50); // Small delay after scroll
+        await delay(100);
 
-        // console.log("Scrolling to top, checking for progress bar...");
-        const progressBarElement = await waitForElementToAppear(
-          "mat-progress-bar.mdc-linear-progress--indeterminate",
-          AUTOSCROLL_MAT_PROGRESS_BAR_APPEAR_TIMEOUT
-        );
+        // Check for the "Loading..." progress bar
+        const progressBar = await waitForElement("mat-progress-bar", 2000);
 
-        if (progressBarElement) {
-          retriesForProgressBar = 0; // Reset retries if progress bar appeared
-          // console.log("Progress bar appeared. Waiting for it to disappear...");
-          const disappeared = await waitForElementToDisappear(
-            "mat-progress-bar.mdc-linear-progress--indeterminate",
-            AUTOSCROLL_MAT_PROGRESS_BAR_DISAPPEAR_TIMEOUT
-          );
-          if (!disappeared) {
-            console.warn(
-              "autoScrollToTop: mat-progress-bar did not disappear within expected time."
-            );
+        if (progressBar) {
+          // Wait for progress bar to vanish
+          const start = Date.now();
+          while (document.querySelector("mat-progress-bar") && Date.now() - start < 5000) {
+            await delay(50);
           }
+          retries = 0;
         } else {
-          // If progress bar doesn't appear, increment retry count
-          retriesForProgressBar++;
-
-          if (retriesForProgressBar > AUTOSCROLL_MAX_RETRY) {
-            break;
-          }
+          retries++;
+          if (retries > AUTOSCROLL_MAX_RETRY) break;
           await delay(AUTOSCROLL_REPEAT_DELAY);
-          continue; // Continue loop to try scrolling again
+          continue;
         }
 
-        const currentChatData = ChatExporter.extractGeminiChatData(document);
-        const currentMessageCount = currentChatData
-          ? currentChatData.messages.length
-          : 0;
-
-        if (currentMessageCount > previousMessageCount) {
-          previousMessageCount = currentMessageCount;
-          retriesForProgressBar = 0; // Reset retries if new messages found
+        // Check if new messages loaded
+        const currentCount = ChatExporter.extractGeminiChatData(document)?.messages.length || 0;
+        if (currentCount > previousMessageCount) {
+          previousMessageCount = currentCount;
+          retries = 0;
         } else {
-          // No new messages detected after a scroll attempt (and progress bar check)
-          // If we had messages before, and now no new ones, it means we reached the top.
-          // console.log("autoScrollToTop: No NEW messages detected after this load cycle. Checking for termination conditions.");
-          if (previousMessageCount !== -1) {
-            // console.log("autoScrollToTop: Assuming end of chat due to no new messages after loading.");
-            break;
-          }
+          // No new messages -> we reached the top
+          if (previousMessageCount !== -1) break;
         }
-
-        await delay(AUTOSCROLL_REPEAT_DELAY);
       }
 
-      // console.log("autoScrollToTop: Auto-scroll process complete. Final message count:", previousMessageCount);
-      // UIManager.showAlert(
-      //   "Auto-scroll complete. You can now export your chat."
-      // );
+      // Refresh the outline one last time
       UIManager.addOutlineControls();
     },
 
