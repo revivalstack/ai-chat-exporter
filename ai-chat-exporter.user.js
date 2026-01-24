@@ -233,7 +233,7 @@
   const GEMINI_TITLE_REPLACE_TEXT = "Gemini - ";
   const GEMINI_MESSAGE_ITEM_SELECTOR = "user-query, model-response";
   const GEMINI_SIDEBAR_ACTIVE_CHAT_SELECTOR =
-    'div[data-test-id="conversation"].selected .conversation-title';
+    '[data-test-id="conversation"][aria-selected="true"] .conversation-title, [data-test-id="conversation"].selected .conversation-title';
 
   const CLAUDE = "claude";
   const CLAUDE_HOSTNAMES = ["claude.ai"];
