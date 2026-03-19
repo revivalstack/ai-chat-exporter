@@ -1,0 +1,63 @@
+{
+  "title": "copilot exporter test chat",
+  "tags": [
+    "test"
+  ],
+  "author": "copilot",
+  "count": 5,
+  "exporter": "3.0.0",
+  "date": "2026-03-19T16:44:32.088Z",
+  "url": "https://www.copilot.com/chats/aHBLj7bsmECtVEk6c7d4z",
+  "messages": [
+    {
+      "id": "user-1",
+      "author": "user",
+      "content": "what version of copilot are you?"
+    },
+    {
+      "id": "ai-1",
+      "author": "ai",
+      "content": "I’m Microsoft Copilot — the latest version designed as an AI companion to help you learn, create, and get things done. I don’t have numbered “versions” like software releases you might install; instead, I’m continuously updated and improved by Microsoft so that I can provide more accurate, engaging, and useful responses over time.\n\nThink of me less like an app with version numbers and more like a service that evolves — always current, always learning, always adapting to you.\n\nWould you like me to walk you through some of the newest capabilities I’ve gained recently?"
+    },
+    {
+      "id": "user-3",
+      "author": "user",
+      "content": "can you demonstrate different types of text-based responses you can return, e.g. table, markdown, code, bullet points, different heading sizes, color, links, footnotes, etc.. I'm testing an exporter for copilot.."
+    },
+    {
+      "id": "ai-3",
+      "author": "ai",
+      "content": "Perfect — let’s run through a showcase of the different text-based response formats I can produce. This should give your exporter a good workout:\n\n# 📝 Heading Examples\n\n## Second-Level Heading\n\n### Third-Level Heading\n\n#### Fourth-Level Heading\n\n## 📋 Bullet Points\n\n- Clean and simple lists\n- Easy to scan\n- Support for nested items:\n\n    - Sub-point A\n\n    - Sub-point B\n\n## 📊 Table Example\n\n| Feature | Description | Example Output |\n|---|---|---|\n| Table | Organizes structured data | Rows & columns |\n| Markdown | Rich formatting with headings, lists | # Heading |\n| Code Block | Displays code with syntax highlighting | print(\"Hello\") |\n\n## 💻 Code Block Example\n\n```python\ndef greet(name):\n    return f\"Hello, {name}!\"\n\nprint(greet(\"World\"))\n\n```\n\n## 🔗 Links\n\nHere’s a sample link to Microsoft Copilot.\n\n## 🎨 Text Styling\n\n- **Bold**\n- _Italic_\n- ~~Strikethrough~~\n- `Inline code`\n\n## 📚 Footnote Example\n\nThis is a statement with a footnote reference.[^1]\n\n[^1]: This is the footnote text, useful for citations or extra notes.\n\n## 🎨 Color (via HTML inline style)\n\nMarkdown itself doesn’t support colors, but HTML can be embedded in some renderers:\n\n<span style=\"color:blue\">This text is blue</span>\n<span style=\"color:red\">This text is red</span>\n<span style=\"color:green\">This text is green</span>\n\nThat’s a full spectrum: headings, lists, tables, code, links, footnotes, and even styled text.\n\nWould you like me to also demonstrate **nested combinations** (like a table inside a list, or code inside a footnote) to push your exporter further?"
+    },
+    {
+      "id": "user-4",
+      "author": "user",
+      "content": "now show some images, or canvas or any embedded stuffs you support"
+    },
+    {
+      "id": "ai-4",
+      "author": "ai",
+      "content": "![Sample showcase image](https://copilot.microsoft.com/th/id/BCO.f5c046fb-83ef-408c-82f6-5ca41848a8f4.png?h=384)"
+    },
+    {
+      "id": "user-5",
+      "author": "user",
+      "content": "can you show codes for python, golang, bash, typescript and plain text (no ``` definition)"
+    },
+    {
+      "id": "ai-5",
+      "author": "ai",
+      "content": "Here’s a multi-language code showcase with five formats — including one plain text block with no markdown fencing:\n\n### 🐍 Python\n\n```python\ndef hello():\n    print(\"Hello from Python!\")\n\n```\n\n### 🦫 Go (Golang)\n\n```go\npackage main\n\nimport \"fmt\"\n\nfunc main() {\n    fmt.Println(\"Hello from Go!\")\n}\n\n```\n\n### 🐚 Bash\n\n```bash\n#!/bin/bash\necho \"Hello from Bash!\"\n\n```\n\n### 🧪 TypeScript\n\n```typescript\nfunction greet(name: string): string {\n    return `Hello, ${name}!`;\n}\n\nconsole.log(greet(\"TypeScript\"));\n\n```\n\n### 📄 Plain Text (no markdown block)\n\ndef hello():\nprint(\"Hello from plain text Python!\")\n\nLet me know if you want to test other formats like HTML, JSON, SQL, or even embedded scripts. I can also mix code with tables or diagrams if your exporter supports hybrid layouts."
+    },
+    {
+      "id": "user-6",
+      "author": "user",
+      "content": "can you do search online in real-time?"
+    },
+    {
+      "id": "ai-6",
+      "author": "ai",
+      "content": "Yes — I can search the web in real time to retrieve fresh, accurate, and authoritative information. This means I can help you with:\n\n- 🔍 Latest news, trends, and events\n- 📈 Current stock prices or market data\n- 🧠 Up-to-date facts, definitions, and comparisons\n- 📅 Time-sensitive info like schedules, releases, or rankings\n- 📍 Location-specific details like weather, restaurants, or laws\n\nJust ask me about anything you want to look up — whether it’s a celebrity’s latest project, a product review, or what’s happening in your city right now — and I’ll pull in the latest insights. Want to try a live search now?"
+    }
+  ]
+}

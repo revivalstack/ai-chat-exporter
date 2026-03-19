@@ -1,0 +1,63 @@
+{
+  "title": "claude exporter test chat",
+  "tags": [
+    "test"
+  ],
+  "author": "claude",
+  "count": 5,
+  "exporter": "3.0.0",
+  "date": "2026-03-19T16:58:02.255Z",
+  "url": "https://claude.ai/chat/76e5c19e-d50b-4ab2-b0f9-7d95d768ade3",
+  "messages": [
+    {
+      "id": "user-1",
+      "author": "user",
+      "content": "what version of claude are you?"
+    },
+    {
+      "id": "ai-1",
+      "author": "ai",
+      "content": "I'm Claude Sonnet 4.6, part of Anthropic's Claude 4.6 model family. The family currently includes Claude Opus 4.6 and Claude Sonnet 4.6 — Sonnet being a smart, efficient model designed for everyday use. Is there anything I can help you with?"
+    },
+    {
+      "id": "user-2",
+      "author": "user",
+      "content": "can you demonstrate different types of text-based responses you can return, e.g. table, markdown, code, bullet points, different heading sizes, color, links, footnotes, etc.. I'm testing an exporter for claude.."
+    },
+    {
+      "id": "ai-2",
+      "author": "ai",
+      "content": "Sure! Here's a showcase of the various formatting elements I can return:\n\n# Heading 1\n\n## Heading 2\n\n### Heading 3\n\n#### Heading 4\n\n## Bold, Italic, Strikethrough\n\n**Bold text**, _italic text_, _**bold and italic**_, ~~strikethrough~~\n\n## Bullet Points\n\n- Item one\n\n- Item two\n\n    - Nested item A\n\n    - Nested item B\n\n        - Deeply nested item\n\n- Item three\n\n## Numbered List\n\n1. First step\n\n2. Second step\n\n3. Third step\n\n1. Sub-step one\n\n2. Sub-step two\n\n## Table\n\n| Language | Type | Year Created | Popular Use |\n|---|---|---|---|\n| Python | Interpreted | 1991 | Data Science, AI |\n| JavaScript | Interpreted | 1995 | Web Development |\n| Rust | Compiled | 2010 | Systems Programming |\n| Go | Compiled | 2009 | Backend Services |\n\n## Code\n\nInline code: `console.log(\"Hello, world!\")`\n\nCode block (JavaScript):\n\n```javascript\nfunction fibonacci(n) {\n  if (n <= 1) return n;\n  return fibonacci(n - 1) + fibonacci(n - 2);\n}\n\nconsole.log(fibonacci(10)); // 55\n```\n\nCode block (Python):\n\n```python\ndef greet(name: str) -> str:\n    return f\"Hello, {name}!\"\n\nprint(greet(\"Claude\"))\n```\n\n## Blockquote\n\n> \"The only way to do great work is to love what you do.\"\n> — Steve Jobs\n\nNested blockquote:\n\n> Outer quote\n> \n> \n> > Inner nested quote\n\n## Link\n\n[Visit Anthropic's website](https://www.anthropic.com)\n\n## Horizontal Rule\n\n## Footnotes\n\nHere is a statement with a footnote.[1](#user-content-fn-1)\n\nAnother claim worth noting.[2](#user-content-fn-2)\n\n## Task List (Checkboxes)\n\n- Completed task\n\n- Another done item\n\n- Pending task\n\n- Not yet started\n\n## Mixed Inline Formatting\n\nYou can combine **bold**, _italic_, `inline code`, and [links](https://claude.ai) all in one sentence.\n\n> **Note on color:** Standard Markdown does not natively support colored text. Color rendering depends entirely on the platform or exporter rendering the Markdown. Some platforms support HTML inline styles like `<span style=\"color:red\">red text</span>`, which would render as: <span style=\"color:red\">red text</span> — but this only works if your exporter supports raw HTML.\n\nHope that gives your exporter a thorough workout! Let me know if you'd like to test any specific edge cases.\n\n## Footnotes\n\n1. This is the first footnote with supporting detail. [↩](#user-content-fnref-1)\n\n2. This is the second footnote. [↩](#user-content-fnref-2)"
+    },
+    {
+      "id": "user-3",
+      "author": "user",
+      "content": "now show some images, or canvas or any embedded stuffs you support"
+    },
+    {
+      "id": "ai-3",
+      "author": "ai",
+      "content": "Sure! Let me show you the different types of embedded/visual content I can generate:\n\n## 1. Inline Visualization (SVG Diagram)\n\nHere's a full showcase of the visual and embedded content types I support:\n\n## 2. Interactive Chart (Chart.js)\n\n## 3. SVG Diagram (Flowchart)\n\n## 4. Interactive Widget (Slider + Live State)\n\n## 5. SVG Illustration / Generative Art\n\n## 6. UI Mockup (Card Component)\n\n## 7. Web Search Images\n\nI can also fetch and display real images from the web:\n\nHere's a summary of the embedded content types I support:\n\n| Type | Description |\n|---|---|\n| SVG Diagram | Flowcharts, structural diagrams, illustrative cross-sections |\n| Interactive Widget | Sliders, calculators, live state, buttons |\n| Chart.js Chart | Bar, line, pie, scatter, bubble charts |\n| SVG Art | Geometric patterns, illustrations |\n| UI Mockup | Cards, dashboards, forms, data records |\n| Web Images | Real photos fetched from the web |\n| Map | D3 choropleth geographic maps |\n| Recipe Widget | Scalable recipe cards |\n| Weather Widget | Live weather for a location |\n| Sports Scores | Live game data |\n\nNote that **color** in the rendered widgets adapts automatically to light/dark mode. Let me know if you'd like to test any specific type in more depth!"
+    },
+    {
+      "id": "user-4",
+      "author": "user",
+      "content": "can you show codes for python, golang, bash, typescript and plain text (no ``` definition)"
+    },
+    {
+      "id": "ai-4",
+      "author": "ai",
+      "content": "Sure! Here are code samples in each language:\n\n**Python**\n\n```python\ndef fibonacci(n: int) -> list[int]:\n    seq = [0, 1]\n    for i in range(2, n):\n        seq.append(seq[-1] + seq[-2])\n    return seq[:n]\n\nprint(fibonacci(10))\n```\n\n**Go**\n\n```go\npackage main\n\nimport \"fmt\"\n\nfunc fibonacci(n int) []int {\n    seq := make([]int, n)\n    seq[0], seq[1] = 0, 1\n    for i := 2; i < n; i++ {\n        seq[i] = seq[i-1] + seq[i-2]\n    }\n    return seq\n}\n\nfunc main() {\n    fmt.Println(fibonacci(10))\n}\n```\n\n**Bash**\n\n```bash\n#!/bin/bash\n\nfibonacci() {\n    local n=$1\n    local a=0 b=1\n    for (( i=0; i<n; i++ )); do\n        echo -n \"$a \"\n        local tmp=$((a + b))\n        a=$b\n        b=$tmp\n    done\n    echo\n}\n\nfibonacci 10\n```\n\n**TypeScript**\n\n```typescript\nfunction fibonacci(n: number): number[] {\n    const seq: number[] = [0, 1];\n    for (let i = 2; i < n; i++) {\n        seq.push(seq[i - 1] + seq[i - 2]);\n    }\n    return seq.slice(0, n);\n}\n\nconsole.log(fibonacci(10));\n```\n\n**Plain text (no language tag)**\n```\nThis is plain text with no syntax highlighting.\n    Indentation is preserved.\n        Nested indentation too.\n\nNo keywords are highlighted here.\nJust raw monospaced text, as-is.\n1234567890 !@#$%^&*()\n```\n\nAnd here is an **inline code** example without a fenced block: `print(\"hello world\")` — that's an inline code span.\n\nFinally, here's a completely unformatted plain text block with no backticks at all:\n\nThis is just regular paragraph text. It has no special formatting, no monospace font, no syntax highlighting. It flows as normal prose within the response, wrapping naturally at the edge of the container. Your exporter should treat this as plain body text."
+    },
+    {
+      "id": "user-5",
+      "author": "user",
+      "content": "can you do search in real-time?"
+    },
+    {
+      "id": "ai-5",
+      "author": "ai",
+      "content": "Yes! Let me demonstrate with a live search right now.\n\nYes! Here's what's happening in AI right now, as of today (March 19, 2026):\n\n**NVIDIA GTC 2026**\nNVIDIA's GTC conference wrapped up this week, with CEO Jensen Huang keynoting to a packed crowd at the SAP Center. Major announcements included the general availability of NVIDIA IGX Thor — an industrial-grade edge AI platform for robotics and manufacturing — and a new physical AI platform for healthcare robotics, adopted by surgical leaders including Johnson & Johnson MedTech and CMR Surgical. [NVIDIA Blog](https://blogs.nvidia.com/blog/gtc-2026-news/)\n\n**AI Industry Growth**\nOpenAI has surpassed $25 billion in annualized revenue and is reportedly taking early steps toward a public listing, potentially as soon as late 2026. Rival Anthropic is approaching $19 billion in annualized revenue. [Crescendo AI](https://www.crescendo.ai/news/latest-ai-news-and-updates)\n\n**Morgan Stanley Warning**\nMorgan Stanley issued a report warning that a transformative AI breakthrough is imminent in the first half of 2026, driven by an unprecedented accumulation of compute at top AI labs. OpenAI's recently released GPT-5.4 \"Thinking\" model scored 83% on the GDPVal benchmark, placing it at or above human expert level on economically valuable tasks. [Yahoo Finance](https://finance.yahoo.com/news/morgan-stanley-warns-ai-breakthrough-072000084.html)\n\n**Big Corporate AI Shifts**\nAtlassian announced layoffs of roughly 1,600 employees (about 10% of its workforce) to redirect up to $236 million toward AI development, simultaneously replacing its CTO with two new AI-focused CTOs. [Crescendo AI](https://www.crescendo.ai/news/latest-ai-news-and-updates)\n\n**Apple & Siri**\nApple announced a completely reimagined AI-powered Siri debuting in 2026, capable of \"on-screen awareness\" and cross-app integration, powered by Google's Gemini model running on Apple's Private Cloud Compute — targeting a March 2026 release with iOS 26.4. [Crescendo AI](https://www.crescendo.ai/news/latest-ai-news-and-updates)\n\nSo yes — real-time web search is fully supported. I can search for news, prices, sports scores, weather, research papers, or any current information and bring it directly into the conversation."
+    }
+  ]
+}

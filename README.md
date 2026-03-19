@@ -1,8 +1,22 @@
-# ChatGPT-Claude-Copilot-Gemini AI Chat Exporter by RevivalStack (v2.7.1)
+# ChatGPT-Claude-Copilot-Gemini AI Chat Exporter by RevivalStack (v3.0.0)
 
 **ChatGPT-Claude-Copilot-Gemini AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from **ChatGPT**, **Claude**, **Copilot**, and **Google Gemini** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
 
 ![ChatGPT-Claude-Copilot-Gemini AI Chat Exporter](images/chatgpt-gemini-ai-exporter.png)
+
+## What's New in v3.0.0?
+
+- **Critical Platform Fixes**: Major updates to DOM selectors to restore broken exports across platforms. Updated **ChatGPT** for its new conversational layout, adapted **Claude** to target new message containers (and automatically strip the "- Claude" title suffix), and migrated **Copilot** support to the new `www.copilot.com` domain with updated Tailwind wrappers.
+- **Custom UI Positioning**: Use the Tampermonkey menu to set your preferred Horizontal (Right) and Vertical (Bottom) offsets for the export controls. This is particularly useful for smaller screens or avoiding overlaps with native site UI.
+- **Auto-Scroll Toggle**: Added an interactive status badge for Gemini's auto-scroll feature. You can now easily toggle the auto-scroll behavior ON or OFF using `Alt + A`.
+- **Keyboard Shortcuts**: Quickly export chats using `Alt + M` (Markdown) or `Alt + J` (JSON). Smart detection prevents triggers while you are typing.
+- **Configurable Title Prefixes**: Added a "Set Gemini Chat Title Prefix" menu command. This allows the exporter to automatically strip custom status marks (like "✓") from filenames. This ensures seamless integration with the [Gemini Title Prefix companion script](https://github.com/revivalstack/ai-chat-exporter/blob/main/tools/set-gemini-chat-title-prefix.user.js), which is useful for automatic prepending of checkmarks on Gemini chat titles.
+- **Enhanced Metadata & Extraction**: YAML titles are now safely quoted and tags are sanitized for `starlight-tags` compatibility—perfect for users using [Astro Starlight](https://starlight.astro.build/) to host or view their exported Markdown collection. Gemini title extraction also now includes a top-bar fallback.
+- **Stability & Cleanup**: Added `@noframes` to prevent duplicate UI elements in iframes and deleted deprecated UI functions (`getTargetContentWidth`, `showAlert`) for a leaner codebase.
+
+### 📂 Sample Exports
+You can find a collection of real-world export examples in the [/sample-exports](https://github.com/revivalstack/ai-chat-exporter/tree/main/sample-exports) directory. This folder contains both **Markdown (.md)** and **JSON (.json)** files generated directly by the script (v3.0.0) from ChatGPT, Claude, Copilot, and Gemini. These samples demonstrate the script's ability to handle complex formatting, including multi-language code blocks, tables, LaTeX-style grounding/citations, and Astro Starlight-compatible YAML metadata.
+
 
 ## What's New in v2.7.0?
 
@@ -33,7 +47,7 @@ This version introduces significant enhancements focused on customization, outpu
   - `{tag1}` through `{tag9}`: Individual tags for more granular control.
     ![Settings: Filename Format](images/chatgpt-gemini-ai-exporter-settings-filename-format.png)
 - **Intelligent Title & Tag Parsing**: The script now automatically extracts tags (e.g., `#project-name`) from chat titles and cleans the title, while intelligently ignoring numeric tags (e.g., `#250731`) that are often used as dates. For example, you can name your chat as `#project #250731 #teamA Review of AI technologies`. This will produce a title `Review of AI technologies` and tags `[project, teamA]`.
-- **Improved Gemini Chat Loading**: The exporter will automatically scroll up the page to load older gemini chat messages.
+- **Improved Gemini Chat Loading**: The exporter automatically scrolls to the top to load older Gemini chat messages. **Tip:** In cases where the automated scroll doesn't start, you can manually trigger it by clicking the first message in the chat outline.
 
   ![v2.5.0 Changes](images/chatgpt-gemini-ai-exporter-v2.5.0.png)
 
