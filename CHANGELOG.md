@@ -1,3 +1,13 @@
+## 3.0.0 (2026-03-20)
+
+### BREAKING CHANGE
+
+- Overhaul of DOM selectors for ChatGPT, Claude, and Copilot plus enhancements to gemini
+
+### Feat
+
+- **core**: release v3.0.0 with critical platform fixes, custom UI positioning, and shortcuts
+
 ## 2.7.1 (2025-08-02)
 
 ### Fix
