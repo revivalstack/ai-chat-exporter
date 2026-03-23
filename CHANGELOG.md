@@ -1,3 +1,9 @@
+## 3.1.0 (2026-03-23)
+
+### Feat
+
+- **core**: add Grok platform, support superscript and subscript tags and fix scroll into view for Copilot
+
 ## 3.0.1 (2026-03-20)
 
 ## 3.0.0 (2026-03-20)
