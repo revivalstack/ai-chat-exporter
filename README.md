@@ -1,5 +1,8 @@
 # ChatGPT-Claude-Copilot-Gemini-Grok AI Chat Exporter by RevivalStack (v3.1.0)
 
+[![Support via Wise](https://img.shields.io/badge/Support-Wise-brightgreen?style=for-the-badge&logo=wise&logoColor=green)](https://wise.com/pay/me/michaelm400)
+[![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-blue?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/micmejia13)
+
 **ChatGPT-Claude-Copilot-Gemini-Grok AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from **ChatGPT**, **Claude**, **Copilot**, **Google Gemini**, and **Grok** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
 
 ![ChatGPT-Claude-Copilot-Gemini AI Chat Exporter](images/chatgpt-gemini-ai-exporter.png)
@@ -164,7 +167,7 @@ You're currently chatting with **AI using GPT-4o**, which is the latest and most
 
 ## ☕ Support the Project
 
-If **ai-chat-exporter** has saved you time or helped organize your AI workflows, consider supporting its continued development! Your donations help me maintain compatibility across five different platforms and keep the script refined and bug-free.
+If **ai-chat-exporter** has saved you time or helped organize your AI workflows, consider supporting its continued development!
 
 | Platform | Link |
 | :--- | :--- |
