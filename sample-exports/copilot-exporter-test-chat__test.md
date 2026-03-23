@@ -3,8 +3,8 @@ title: "copilot exporter test chat"
 tags: [test]
 author: copilot
 count: 5
-exporter: 3.0.0
-date: 2026-03-20T00-44-28+0800
+exporter: 3.1.0
+date: 2026-03-23T21-37-44+0800
 url: https://www.copilot.com/chats/aHBLj7bsmECtVEk6c7d4z
 ---
 
@@ -107,7 +107,7 @@ ___
 
 > now show some images, or canvas or any embedded stuffs you support
 
-![Sample showcase image](https://copilot.microsoft.com/th/id/BCO.f5c046fb-83ef-408c-82f6-5ca41848a8f4.png?h=384)
+![Sample showcase image](https://copilot.microsoft.com/th/id/BCO.f5c046fb-83ef-408c-82f6-5ca41848a8f4.png?w=384)
 
 ___
 ###### [top](#table-of-contents)

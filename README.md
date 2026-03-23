@@ -1,8 +1,14 @@
-# ChatGPT-Claude-Copilot-Gemini AI Chat Exporter by RevivalStack (v3.0.0)
+# ChatGPT-Claude-Copilot-Gemini-Grok AI Chat Exporter by RevivalStack (v3.1.0)
 
-**ChatGPT-Claude-Copilot-Gemini AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from **ChatGPT**, **Claude**, **Copilot**, and **Google Gemini** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
+**ChatGPT-Claude-Copilot-Gemini-Grok AI Chat Exporter** is a Tampermonkey user script that allows you to export your conversations from **ChatGPT**, **Claude**, **Copilot**, **Google Gemini**, and **Grok** with rich Markdown formatting, a Table of Contents (TOC), YAML metadata, and more.
 
 ![ChatGPT-Claude-Copilot-Gemini AI Chat Exporter](images/chatgpt-gemini-ai-exporter.png)
+
+## What's New in v3.1.0?
+
+- **Full Grok Support**: Official integration for `grok.com` with optimized message detection and clean code block formatting.
+- **Fixes & Formatting**: Resolved scroll into view issues on **Copilot**, and added support for **Subscript** and **Superscript** tags.
+
 
 ## What's New in v3.0.0?
 
@@ -16,7 +22,6 @@
 
 ### 📂 Sample Exports
 You can find a collection of real-world export examples in the [/sample-exports](https://github.com/revivalstack/ai-chat-exporter/tree/main/sample-exports) directory. This folder contains both **Markdown (.md)** and **JSON (.json)** files generated directly by the script (v3.0.0) from ChatGPT, Claude, Copilot, and Gemini. These samples demonstrate the script's ability to handle complex formatting, including multi-language code blocks, tables, LaTeX-style grounding/citations, and Astro Starlight-compatible YAML metadata.
-
 
 ## What's New in v2.7.0?
 
@@ -53,7 +58,7 @@ This version introduces significant enhancements focused on customization, outpu
 
 ## Features
 
-- **Cross-Platform Support**: Export conversations seamlessly from **ChatGPT**, **Claude**, **Copilot**, and **Google Gemini**.
+- **Cross-Platform Support**: Export conversations seamlessly from **ChatGPT**, **Claude**, **Copilot**, **Google Gemini**, and **Grok**.
 - **Markdown Conversion**: Converts your chat conversation into a properly and elegantly formatted Markdown, ensuring accurate rendering of text, code blocks, tables, and especially **correct newlines within list items**.
   - **Table of Contents (TOC)**: Automatically generates a TOC linking to each message pair (user question + AI response) within the Markdown export.
   - **Back to Top**: Allows quick navigation through a "Back to Top" link after each AI response in the Markdown export.

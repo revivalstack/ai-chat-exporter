@@ -3,8 +3,8 @@ title: "claude exporter test chat"
 tags: [test]
 author: claude
 count: 5
-exporter: 3.0.0
-date: 2026-03-20T00-57-52+0800
+exporter: 3.1.0
+date: 2026-03-23T21-37-51+0800
 url: https://claude.ai/chat/76e5c19e-d50b-4ab2-b0f9-7d95d768ade3
 ---
 
@@ -123,9 +123,9 @@ Nested blockquote:
 
 ## Footnotes
 
-Here is a statement with a footnote.[1](#user-content-fn-1)
+Here is a statement with a footnote.<sup>[1](#user-content-fn-1)</sup>
 
-Another claim worth noting.[2](#user-content-fn-2)
+Another claim worth noting.<sup>[2](#user-content-fn-2)</sup>
 
 ## Task List (Checkboxes)
 

@@ -4,7 +4,7 @@
 
 ### BREAKING CHANGE
 
-- Overhaul of DOM selectors for ChatGPT, Claude, and Copilot plus enhancements to gemini
+- Overhaul of DOM selectors for ChatGPT, Claude, and Copilot plus enhancements to Gemini
 
 ### Feat
 

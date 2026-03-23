@@ -5,8 +5,8 @@
   ],
   "author": "copilot",
   "count": 5,
-  "exporter": "3.0.0",
-  "date": "2026-03-19T16:44:32.088Z",
+  "exporter": "3.1.0",
+  "date": "2026-03-23T13:37:48.076Z",
   "url": "https://www.copilot.com/chats/aHBLj7bsmECtVEk6c7d4z",
   "messages": [
     {
@@ -37,7 +37,7 @@
     {
       "id": "ai-4",
       "author": "ai",
-      "content": "![Sample showcase image](https://copilot.microsoft.com/th/id/BCO.f5c046fb-83ef-408c-82f6-5ca41848a8f4.png?h=384)"
+      "content": "![Sample showcase image](https://copilot.microsoft.com/th/id/BCO.f5c046fb-83ef-408c-82f6-5ca41848a8f4.png?w=384)"
     },
     {
       "id": "user-5",

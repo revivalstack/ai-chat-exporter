@@ -3,8 +3,8 @@ title: "gemini exporter test chat"
 tags: [test]
 author: gemini
 count: 5
-exporter: 3.0.0
-date: 2026-03-20T00-33-07+0800
+exporter: 3.1.0
+date: 2026-03-23T21-38-03+0800
 url: https://gemini.google.com/app/45bd2711b4130be8
 ---
 

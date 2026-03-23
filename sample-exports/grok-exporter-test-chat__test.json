@@ -1,0 +1,63 @@
+{
+  "title": "grok exporter test chat",
+  "tags": [
+    "test"
+  ],
+  "author": "grok",
+  "count": 5,
+  "exporter": "3.1.0",
+  "date": "2026-03-23T13:37:39.476Z",
+  "url": "https://grok.com/c/6d27fe4b-9bfc-4d9f-ad88-3ac7e108e1a9",
+  "messages": [
+    {
+      "id": "user-1",
+      "author": "user",
+      "content": "what version of grok are you?"
+    },
+    {
+      "id": "ai-1",
+      "author": "ai",
+      "content": "I'm Grok 4. 😄"
+    },
+    {
+      "id": "user-2",
+      "author": "user",
+      "content": "can you do search in real-time?"
+    },
+    {
+      "id": "ai-2",
+      "author": "ai",
+      "content": "**Yes, I can do real-time searches.**\n\nI have several tools that let me fetch current information as it exists right now (as of March 2025):\n\n- Live web search (normal + snippet versions)\n\n- Browse any webpage and get its current content\n\n- Real-time X (Twitter) searches — both keyword-based and semantic/relevance-based\n\n- Fetch the latest posts, threads, user profiles, etc. from X\n\n- Get fresh images and video frames from current web/X content\n\nSo basically anything that's publicly available on the web or on X right now — I can go look it up live during our conversation.\n\nWant to test it? Throw me something current (news, crypto price, trending topic, someone's recent post, weird weather somewhere, etc.) and I'll show you. 😄"
+    },
+    {
+      "id": "user-3",
+      "author": "user",
+      "content": "can you demonstrate different types of text-based responses you can return, e.g. table, markdown, code, bullet points, different heading sizes, color, links, footnotes, etc.. I'm testing an exporter for grok.."
+    },
+    {
+      "id": "ai-3",
+      "author": "ai",
+      "content": "Here’s a quick showcase of the main text-based formatting options I can use in responses. These usually export cleanly to Markdown/HTML-based systems.\n\n# Heading 1 – Big Title\n\n## Heading 2 – Section\n\n### Heading 3 – Subsection\n\n#### Heading 4 – Smaller still\n\n**Bold text**\n\n_Italic text_\n\n_**Bold + italic**_\n\n~~Strikethrough~~\n\ninline code\n\n**bold inline code**\n\n### Bullet lists (unordered)\n\n- First level\n\n    - Nested item\n\n    - Another nested\n\n- Second top-level item\n\n    - with a very long line that should wrap nicely in most viewers: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n\n### Numbered lists\n\n1. Step one\n\n2. Step two\n\n1. Sub-step A\n\n2. Sub-step B with **formatting**\n\n3. Step three\n\n### Task / checklist style (some renderers show checkboxes)\n\n- Not started\n\n- Completed task\n\n- Another pending item\n\n### Blockquote\n\n> This is a quoted paragraph.\n> \n> It can span multiple lines.\n> \n> > And even have nested quotes.\n\n### Code blocks\n\nPlain text code block:\n\n```\nthis is raw text\n  indented\n```\n\nLanguage-specified (most exporters syntax-highlight these):\n\n```python\ndef greet(name: str) -> str:\n    \"\"\"Classic example function\"\"\"\n    return f\"Hello, {name}!\"\n\nif __name__ == \"__main__\":\n    print(greet(\"exporter tester\"))\n```\n\n```javascript\n// JavaScript arrow function + destructuring\nconst user = { name: \"Mic\", city: \"Quezon City\" };\nconst { name, city } = user;\n\nconsole.log(`Greetings from ${city}, ${name}!`);\n```\n\n### Horizontal rule\n\n### Table\n\n| Feature | Markdown syntax | Usually renders as | Notes |\n|---|---|---|---|\n| Bold | **text** | text | Very reliable |\n| Inline code | `code` | code | Great for commands/variables |\n| Strikethrough | ~~text~~ | text | Supported almost everywhere now |\n| Table | | ... | | like this one | Alignment can be lost in some apps |\n| Footnote | [^1] | superscript¹ | See below |\n| Link | [text](url) | Grok homepage | Most reliable format |\n| Image (markdown) | ![alt](url) | (image would appear) | Exporters usually handle this well |\n\n### Links (different styles)\n\n- Classic: [xAI website](https://x.ai)\n\n- With title attribute: [Grok on X](https://x.com/grok)\n\n- Bare URL (some renderers auto-link): [https://help.x.com/en/using-x/x-premium](https://help.x.com/en/using-x/x-premium)\n\n- Email-style: [mic@example.com](mailto:mic@example.com)\n\n### Footnotes example\n\nThis sentence has a footnote.<sup>1</sup>\n\nAnother one right here.<sup>2</sup>\n\nLet me know which of these elements break / look weird / get lost when you export — that’ll help identify the quirks of your exporter. 😄\n\n## Footnotes\n\n1. First footnote – usually appears at the bottom in good Markdown renderers. ↩\n\n2. Second footnote with a longer explanation that can contain **formatting**, code, or even line\n\nbreaks if the renderer supports it. ↩"
+    },
+    {
+      "id": "user-4",
+      "author": "user",
+      "content": "now show some images, or canvas or any embedded stuffs you support"
+    },
+    {
+      "id": "ai-4",
+      "author": "ai",
+      "content": "![](https://assets.grok.com/users/3271bfc6-ae6b-4de0-b2aa-8d611c77ba0a/generated/2a5519b3-b93a-4f15-beb6-c123d1664225-part-0/image.jpg)![](https://assets.grok.com/users/3271bfc6-ae6b-4de0-b2aa-8d611c77ba0a/generated/2a5519b3-b93a-4f15-beb6-c123d1664225/image.jpg)![](https://assets.grok.com/users/3271bfc6-ae6b-4de0-b2aa-8d611c77ba0a/generated/2a5519b3-b93a-4f15-beb6-c123d1664225/image.jpg)\n\n**Grok Imagine generated image #1**\n\n(Photorealistic style – one of the many styles I support)\n\n![](https://assets.grok.com/users/3271bfc6-ae6b-4de0-b2aa-8d611c77ba0a/generated/6a894430-5b4a-4d7b-ab1b-87c70382410f-part-0/image.jpg)![](https://assets.grok.com/users/3271bfc6-ae6b-4de0-b2aa-8d611c77ba0a/generated/6a894430-5b4a-4d7b-ab1b-87c70382410f/image.jpg)![](https://assets.grok.com/users/3271bfc6-ae6b-4de0-b2aa-8d611c77ba0a/generated/6a894430-5b4a-4d7b-ab1b-87c70382410f/image.jpg)\n\n**Grok Imagine generated image #2**\n\n(Landscape orientation demo)\n\n![](https://assets.grok.com/users/3271bfc6-ae6b-4de0-b2aa-8d611c77ba0a/generated/183a286c-ef52-4be9-b4ad-e3eabfd365ca-part-0/image.jpg)![](https://assets.grok.com/users/3271bfc6-ae6b-4de0-b2aa-8d611c77ba0a/generated/183a286c-ef52-4be9-b4ad-e3eabfd365ca/image.jpg)![](https://assets.grok.com/users/3271bfc6-ae6b-4de0-b2aa-8d611c77ba0a/generated/183a286c-ef52-4be9-b4ad-e3eabfd365ca/image.jpg)\n\n**Grok Imagine generated image #3 – Canvas demo**\n\n(This is how I can render “canvas-style” artwork)\n\n### Other embedded stuff I support\n\n- **Data visualizations / plots** (treated as “canvas” for charts): I can run Python code (matplotlib, seaborn, plotly, etc.) and embed the resulting PNG/JPG files directly.\n\n- **Searched web images**: I can pull real-time images from the internet and render them.\n\n- **Image editing**: If you give me a previous image, I can edit it with a text prompt (e.g. “add sunglasses and make it cyberpunk”).\n\n- **No raw HTML canvas or interactive elements** — everything is rendered as static high-quality images for clean exporting.\n\nAll of these render components are designed to export nicely in most Markdown/HTML-based systems (they usually appear as images or image blocks).\n\nWant me to generate more specific images, run a live plot demo, edit one of these, or show searched web images next? Just say the word and I’ll fire them up! 😄"
+    },
+    {
+      "id": "user-5",
+      "author": "user",
+      "content": "can you show codes for python, golang, bash, typescript and plain text (no ``` definition)"
+    },
+    {
+      "id": "ai-5",
+      "author": "ai",
+      "content": "Here’s a clean demonstration of code blocks for each language you requested (with realistic, export-friendly examples). I’ve kept the formatting exactly as it appears in my responses.\n\n### Python\n\n```python\ndef fibonacci(n: int) -> int:\n    \"\"\"Return the nth Fibonacci number (recursive for demo).\"\"\"\n    if n <= 1:\n        return n\n    return fibonacci(n-1) + fibonacci(n-2)\n\nif __name__ == \"__main__\":\n    print(\"Fib(10) =\", fibonacci(10))\n```\n\n### Golang\n\n```go\npackage main\n\nimport \"fmt\"\n\nfunc main() {\n    fmt.Println(\"Hello from Go! 🚀\")\n    \n    // Simple slice demo\n    numbers := []int{1, 2, 3, 4, 5}\n    for _, v := range numbers {\n        fmt.Printf(\"Number: %d\\n\", v)\n    }\n}\n```\n\n### Bash\n\n```bash\n#!/usr/bin/env bash\n\necho \"Hello from Bash! 🐚\"\n\n# Quick system info demo\necho \"Current user: $USER\"\necho \"Uptime: $(uptime -p)\"\necho \"Disk usage:\"\ndf -h | head -n 4\n```\n\n### TypeScript\n\n```typescript\ninterface User {\n    name: string;\n    city: string;\n    active: boolean;\n}\n\nconst greet = (user: User): string => {\n    return `Hello ${user.name} from ${user.city}!`;\n};\n\nconst mic: User = {\n    name: \"Mic\",\n    city: \"Quezon City\",\n    active: true\n};\n\nconsole.log(greet(mic));\n```\n\n### Plain text (no ``` definition / no language tag)\n\n```\nThis is a plain-text code block with absolutely no language specified after the opening fences.\n\nLine 1: Just raw text\nLine 2: Can contain anything → symbols !@#$%^&*()\nLine 3: Perfect for logs, config files, or plain output that shouldn't be syntax-highlighted.\n```\n\nThese blocks are the exact format I return — ready for your exporter to test.\n\nLet me know if you want:\n\n- Indented code blocks instead of fences\n\n- Different languages (Rust, Java, etc.)\n\n- Multi-file examples\n\n- Or any specific code snippet inside them! 😄"
+    }
+  ]
+}

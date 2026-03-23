@@ -3,8 +3,8 @@ title: "chatgpt exporter test chat"
 tags: [test]
 author: chatgpt
 count: 5
-exporter: 3.0.0
-date: 2026-03-20T00-32-48+0800
+exporter: 3.1.0
+date: 2026-03-23T21-37-57+0800
 url: https://chatgpt.com/c/69bbe505-0fa8-839e-97c6-4af4bfa6001e
 ---
 
@@ -194,7 +194,7 @@ print(greet("Mic"))
 
 ## 📎 Footnotes
 
-Here is a statement with a footnote.[1](null)
+Here is a statement with a footnote.<sup>[1](null)</sup>
 
 ## 📐 Horizontal Rule
 
