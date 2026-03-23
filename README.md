@@ -9,6 +9,10 @@
 - **Full Grok Support**: Official integration for `grok.com` with optimized message detection and clean code block formatting.
 - **Fixes & Formatting**: Resolved scroll into view issues on **Copilot**, and added support for **Subscript** and **Superscript** tags.
 
+### 📂 Sample Exports
+You can find a collection of real-world export examples in the [/sample-exports](https://github.com/revivalstack/ai-chat-exporter/tree/main/sample-exports) directory. This folder contains both **Markdown (.md)** and **JSON (.json)** files generated directly by the script (v3.1.0) from ChatGPT, Claude, Copilot, Gemini and Grok. These samples demonstrate the script's ability to handle complex formatting, including multi-language code blocks, tables, LaTeX-style grounding/citations, and Astro Starlight-compatible YAML metadata.
+
+---
 
 ## What's New in v3.0.0?
 
@@ -19,9 +23,6 @@
 - **Configurable Title Prefixes**: Added a "Set Gemini Chat Title Prefix" menu command. This allows the exporter to automatically strip custom status marks (like "✓") from filenames. This ensures seamless integration with the [Gemini Title Prefix companion script](https://github.com/revivalstack/ai-chat-exporter/blob/main/tools/set-gemini-chat-title-prefix.user.js), which is useful for automatic prepending of checkmarks on Gemini chat titles.
 - **Enhanced Metadata & Extraction**: YAML titles are now safely quoted and tags are sanitized for `starlight-tags` compatibility—perfect for users using [Astro Starlight](https://starlight.astro.build/) to host or view their exported Markdown collection. Gemini title extraction also now includes a top-bar fallback.
 - **Stability & Cleanup**: Added `@noframes` to prevent duplicate UI elements in iframes and deleted deprecated UI functions (`getTargetContentWidth`, `showAlert`) for a leaner codebase.
-
-### 📂 Sample Exports
-You can find a collection of real-world export examples in the [/sample-exports](https://github.com/revivalstack/ai-chat-exporter/tree/main/sample-exports) directory. This folder contains both **Markdown (.md)** and **JSON (.json)** files generated directly by the script (v3.0.0) from ChatGPT, Claude, Copilot, and Gemini. These samples demonstrate the script's ability to handle complex formatting, including multi-language code blocks, tables, LaTeX-style grounding/citations, and Astro Starlight-compatible YAML metadata.
 
 ## What's New in v2.7.0?
 
@@ -56,6 +57,8 @@ This version introduces significant enhancements focused on customization, outpu
 
   ![v2.5.0 Changes](images/chatgpt-gemini-ai-exporter-v2.5.0.png)
 
+---
+
 ## Features
 
 - **Cross-Platform Support**: Export conversations seamlessly from **ChatGPT**, **Claude**, **Copilot**, **Google Gemini**, and **Grok**.
@@ -75,6 +78,8 @@ This version introduces significant enhancements focused on customization, outpu
 
 - **Turndown Integration**: Safely converts HTML content into Markdown using a customized [Turndown](https://github.com/mixmark-io/turndown) service.
 - **Local Time Formatting**: Includes the exact local time when the conversation was exported.
+
+---
 
 ## Installation
 
@@ -97,6 +102,8 @@ This version introduces significant enhancements focused on customization, outpu
 ### via Greasy Fork
 
 - [Greasy Fork script](https://greasyfork.org/en/scripts/541051-chatgpt-claude-copilot-gemini-ai-chat-exporter-by-revivalstack)
+
+---
 
 ## Export Format
 
@@ -152,6 +159,20 @@ You're currently chatting with **AI using GPT-4o**, which is the latest and most
 
 ...
 ```
+
+---
+
+## ☕ Support the Project
+
+If **ai-chat-exporter** has saved you time or helped organize your AI workflows, consider supporting its continued development! Your donations help me maintain compatibility across five different platforms and keep the script refined and bug-free.
+
+| Platform | Link |
+| :--- | :--- |
+| **Buy me a coffee (via Wise)** | [**Support on Wise**](https://wise.com/pay/me/michaelm400) |
+| **Donate via PayPal** | [**Support on PayPal**](https://paypal.me/micmejia13) |
+
+---
+
 
 ## License
 
