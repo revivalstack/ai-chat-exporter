@@ -12,6 +12,8 @@
 // @match        https://www.copilot.com/*
 // @match        https://gemini.google.com/*
 // @match        https://grok.com/*
+// @match        https://www.perplexity.ai/*
+// @match        https://perplexity.ai/*
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
@@ -363,6 +365,14 @@
   const GROK_CONTENT_SELECTOR = ".response-content-markdown";
   const GROK_USER_INDICATOR = ".items-end";
 
+  const PERPLEXITY = "perplexity";
+  const PERPLEXITY_HOSTNAMES = ["perplexity.ai"];
+  const PERPLEXITY_THREAD_SELECTOR =
+    '.max-w-threadContentWidth, [class*="threadContentWidth"]';
+  const PERPLEXITY_USER_SELECTOR = "h1.group\\/query";
+  const PERPLEXITY_ANSWER_SELECTOR =
+    ".prose.dark\\:prose-invert[data-renderer='lm'], div[id^='markdown-content-'] .prose";
+
   const HOSTNAME = window.location.hostname;
   const CURRENT_PLATFORM = (() => {
     if (CHATGPT_HOSTNAMES.some((host) => HOSTNAME.includes(host))) {
@@ -379,6 +389,9 @@
     }
     if (GROK_HOSTNAMES.some((host) => HOSTNAME.includes(host))) {
       return GROK;
+    }
+    if (PERPLEXITY_HOSTNAMES.some((host) => HOSTNAME.includes(host))) {
+      return PERPLEXITY;
     }
     return "unknown";
   })();
@@ -1082,6 +1095,109 @@
     },
 
     /**
+     * Extracts chat data from Perplexity's DOM structure (Phase 1 — in-DOM messages only).
+     * @param {Document} doc - The Document object.
+     * @returns {object|null} The standardized chat data, or null.
+     */
+    extractPerplexityChatData(doc) {
+      const container =
+        doc.querySelector(PERPLEXITY_THREAD_SELECTOR) ||
+        doc.querySelector("main") ||
+        doc.body;
+
+      const combinedSelector = [
+        PERPLEXITY_USER_SELECTOR,
+        PERPLEXITY_ANSWER_SELECTOR,
+      ].join(", ");
+      const nodes = [...container.querySelectorAll(combinedSelector)];
+      if (nodes.length === 0) return null;
+
+      const messages = [];
+      let chatIndex = 1;
+      const seen = new Set();
+
+      let rawTitle = (doc.title || DEFAULT_CHAT_TITLE)
+        .replace(/\s[-–|]\s*Perplexity.*$/i, "")
+        .trim();
+
+      for (const node of nodes) {
+        const isUser = node.matches(PERPLEXITY_USER_SELECTOR);
+
+        if (isUser) {
+          const textSpan =
+            node.querySelector("span.select-text") ||
+            node.querySelector("span[data-lexical-text='true']");
+          const text = (textSpan?.textContent || node.innerText || "").trim();
+          if (!text || text.length < 2) continue;
+
+          const dedupeKey = `u:${text}`;
+          if (seen.has(dedupeKey)) continue;
+          seen.add(dedupeKey);
+
+          const messageId = `user-${chatIndex}-${Date.now()}-${Math.random()
+            .toString(36)
+            .substring(2, 9)}`;
+
+          messages.push({
+            id: messageId,
+            author: "user",
+            contentHtml: textSpan || node,
+            contentText: text,
+            timestamp: new Date(),
+            originalIndex: chatIndex,
+          });
+          continue;
+        }
+
+        const text = node.innerText.trim();
+        if (!text) continue;
+
+        const dedupeKey = `a:${text.substring(0, 120)}:${text.length}`;
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+
+        const messageId = `ai-${chatIndex}-${Date.now()}-${Math.random()
+          .toString(36)
+          .substring(2, 9)}`;
+
+        messages.push({
+          id: messageId,
+          author: "ai",
+          contentHtml: node.cloneNode(true),
+          contentText: text,
+          timestamp: new Date(),
+          originalIndex: chatIndex,
+        });
+        chatIndex++;
+      }
+
+      if (messages.length === 0) return null;
+
+      if (rawTitle === DEFAULT_CHAT_TITLE && messages[0]?.author === "user") {
+        rawTitle = messages[0].contentText
+          .split(/\s+/)
+          .slice(0, 7)
+          .join(" ")
+          .replace(/[,.;:!?\-+]$/, "")
+          .trim();
+      }
+
+      const _parsedTitle = Utils.parseChatTitleAndTags(rawTitle);
+
+      return {
+        _raw_title: rawTitle,
+        title: _parsedTitle.title,
+        tags: _parsedTitle.tags,
+        author: PERPLEXITY,
+        messages: messages,
+        messageCount: messages.filter((m) => m.author === "user").length,
+        exportedAt: new Date(),
+        exporterVersion: EXPORTER_VERSION,
+        threadUrl: Utils.getCleanUrl(),
+      };
+    },
+
+    /**
      * Converts standardized chat data to Markdown format.
      * This function now expects a pre-filtered `chatData`.
      * @param {object} chatData - The standardized chat data (already filtered).
@@ -1380,6 +1496,19 @@
             const codeText = codeNode.textContent || "";
 
             return "\n\n```" + language + "\n" + codeText + "\n```\n\n";
+          },
+        });
+      }
+
+      if (CURRENT_PLATFORM === PERPLEXITY) {
+        turndownServiceInstance.addRule("perplexityCitation", {
+          filter: (node) =>
+            node.nodeName === "SPAN" &&
+            node.classList?.contains("citation") &&
+            node.hasAttribute("data-pplx-citation-url"),
+          replacement: (_content, node) => {
+            const url = node.getAttribute("data-pplx-citation-url");
+            return url ? ` [source](${url})` : "";
           },
         });
       }
@@ -2090,6 +2219,9 @@
         case GROK:
           freshChatData = ChatExporter.extractGrokChatData(document);
           break;
+        case PERPLEXITY:
+          freshChatData = ChatExporter.extractPerplexityChatData(document);
+          break;
         default:
           outlineContainer.style.display = "none"; // Hide if not supported
           return;
@@ -2792,6 +2924,12 @@
           break;
         case GEMINI:
           targetNode = document.querySelector("#__next") || document.body;
+          break;
+        case PERPLEXITY:
+          targetNode =
+            document.querySelector(PERPLEXITY_THREAD_SELECTOR) ||
+            document.querySelector("main") ||
+            document.body;
           break;
         default:
           targetNode = document.querySelector("main") || document.body;
