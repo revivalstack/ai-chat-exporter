@@ -472,7 +472,7 @@
         str = str.toLocaleLowerCase();
       }
       return str
-        .replace(/[^a-zA-Z0-9\-_.+]+/g, "-")
+        .replace(/[^\p{L}\p{N}\-_.+]+/gu, "-")
         .replace(/-+/g, "-")
         .replace(/^-|-$/g, "")
         .replace(/^$/, "invalid-filename")
@@ -652,6 +652,126 @@
   const ChatExporter = {
     _currentChatData: null, // Store the last extracted chat data
     _selectedMessageIds: new Set(), // Store IDs of selected messages for export
+    _chatGPTTurnCache: new Map(), // Cache virtualized ChatGPT turns by stable data-testid
+    _chatGPTCacheUrl: null,
+
+    resetChatGPTTurnCacheIfNeeded() {
+      const currentUrl = Utils.getCleanUrl();
+      if (ChatExporter._chatGPTCacheUrl !== currentUrl) {
+        ChatExporter._chatGPTTurnCache.clear();
+        ChatExporter._chatGPTCacheUrl = currentUrl;
+      }
+    },
+
+    getChatGPTTurnNumber(article) {
+      const testId = article.getAttribute("data-testid") || "";
+      const match = testId.match(/conversation-turn-(\d+)/);
+      return match ? parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER;
+    },
+
+    getChatGPTContent(article, doc = document) {
+      const contentTargets = [
+        ...article.querySelectorAll(CHATGPT_TEXT_DIV_SELECTOR),
+      ].filter((target) => target.innerText.trim());
+
+      if (contentTargets.length === 0) {
+        return {
+          contentHtml: ChatExporter.cloneChatGPTContent(article),
+          contentText: article.innerText.trim(),
+        };
+      }
+
+      if (contentTargets.length === 1) {
+        return {
+          contentHtml: ChatExporter.cloneChatGPTContent(contentTargets[0]),
+          contentText: contentTargets[0].innerText.trim(),
+        };
+      }
+
+      const wrapper = doc.createElement("div");
+      for (const contentTarget of contentTargets) {
+        wrapper.appendChild(ChatExporter.cloneChatGPTContent(contentTarget));
+      }
+
+      return {
+        contentHtml: wrapper,
+        contentText: contentTargets
+          .map((target) => target.innerText.trim())
+          .join("\n\n"),
+      };
+    },
+
+    cloneChatGPTContent(contentTarget) {
+      if (!contentTarget.cloneNode) return contentTarget;
+
+      const clone = contentTarget.cloneNode(true);
+      const liveCodeBlocks = [...contentTarget.querySelectorAll(".cm-content")];
+      const clonedCodeBlocks = [...clone.querySelectorAll(".cm-content")];
+
+      liveCodeBlocks.forEach((liveCodeBlock, index) => {
+        const clonedCodeBlock = clonedCodeBlocks[index];
+        if (!clonedCodeBlock) return;
+
+        const codeText = liveCodeBlock.innerText || liveCodeBlock.textContent;
+        clonedCodeBlock.textContent = codeText;
+      });
+
+      return clone;
+    },
+
+    cacheChatGPTTurn(article, doc = document) {
+      const testId = article.getAttribute("data-testid");
+      if (!testId) return;
+
+      const turnType = article.getAttribute("data-turn");
+      const header =
+        article.querySelector(CHATGPT_HEADER_SELECTOR)?.textContent?.trim() ||
+        "";
+      const isUser =
+        turnType === "user" ||
+        header.toLowerCase().includes(CHATGPT_USER_MESSAGE_INDICATOR);
+      const author = isUser ? "user" : "ai";
+
+      // Target exactly the content containers to ignore action buttons.
+      const { contentHtml, contentText } = ChatExporter.getChatGPTContent(
+        article,
+        doc
+      );
+
+      if (!contentText) return;
+
+      const cached = ChatExporter._chatGPTTurnCache.get(testId);
+      if (cached && cached.contentText.length >= contentText.length) return;
+
+      ChatExporter._chatGPTTurnCache.set(testId, {
+        id: `${author}-${ChatExporter.getChatGPTTurnNumber(article)}`,
+        author,
+        contentHtml,
+        contentText,
+        timestamp: new Date(),
+        turnNumber: ChatExporter.getChatGPTTurnNumber(article),
+      });
+    },
+
+    buildChatGPTMessagesFromCache() {
+      let chatIndex = 1;
+
+      return [...ChatExporter._chatGPTTurnCache.values()]
+        .sort((a, b) => a.turnNumber - b.turnNumber)
+        .map((cached) => {
+          const message = {
+            id: cached.id,
+            author: cached.author,
+            contentHtml: cached.contentHtml,
+            contentText: cached.contentText,
+            timestamp: cached.timestamp,
+            originalIndex: chatIndex,
+          };
+
+          if (cached.author !== "user") chatIndex++;
+          return message;
+        });
+    },
 
     /**
      * Extracts chat data from ChatGPT's DOM structure.
@@ -659,51 +779,21 @@
      * @returns {object|null} The standardized chat data, or null.
      */
     extractChatGPTChatData(doc) {
+      ChatExporter.resetChatGPTTurnCacheIfNeeded();
+
       const articles = [...doc.querySelectorAll(CHATGPT_ARTICLE_SELECTOR)];
       if (articles.length === 0) return null;
 
       let title =
         doc.title.replace(CHATGPT_TITLE_REPLACE_TEXT, "").trim() ||
         DEFAULT_CHAT_TITLE;
-      const messages = [];
-      let chatIndex = 1;
 
       for (const article of articles) {
-        const turnType = article.getAttribute("data-turn");
-        const header =
-          article.querySelector(CHATGPT_HEADER_SELECTOR)?.textContent?.trim() ||
-          "";
-
-        const isUser =
-          turnType === "user" ||
-          header.toLowerCase().includes(CHATGPT_USER_MESSAGE_INDICATOR);
-        const author = isUser ? "user" : "ai";
-
-        // CRITICAL FIX: Target exactly the content container to ignore action buttons
-        const contentTarget = article.querySelector(
-          ".markdown, .whitespace-pre-wrap"
-        );
-        const contentHtml = contentTarget || article;
-
-        const contentText = contentHtml.innerText.trim();
-
-        if (!contentText) continue;
-
-        const messageId = `${author}-${chatIndex}-${Date.now()}-${Math.random()
-          .toString(36)
-          .substring(2, 9)}`;
-
-        messages.push({
-          id: messageId,
-          author: author,
-          contentHtml: contentHtml, // Pass the clean container to Turndown
-          contentText: contentText,
-          timestamp: new Date(),
-          originalIndex: chatIndex,
-        });
-
-        if (!isUser) chatIndex++;
+        ChatExporter.cacheChatGPTTurn(article, doc);
       }
+
+      const messages = ChatExporter.buildChatGPTMessagesFromCache();
+      if (messages.length === 0) return null;
 
       const _parsedTitle = Utils.parseChatTitleAndTags(title);
 
@@ -1088,6 +1178,19 @@
      * @param {TurndownService} turndownServiceInstance - Configured TurndownService.
      * @returns {{output: string, fileName: string}} Markdown string and filename.
      */
+    formatUserMessageContent(msg) {
+      const contentText = msg.contentText || "";
+      const hasMultilineInlineCode =
+        CURRENT_PLATFORM === CHATGPT &&
+        /\r?\n/.test(contentText) &&
+        msg.contentHtml?.querySelector?.(".user-message-inline-code");
+
+      if (!hasMultilineInlineCode) return contentText;
+
+      const fence = contentText.includes("```") ? "````" : "```";
+      return `${fence}\n${contentText.trim()}\n${fence}`;
+    },
+
     formatToMarkdown(chatData, turndownServiceInstance) {
       let toc = "";
       let content = "";
@@ -1103,9 +1206,10 @@
           toc += `- [${exportChatIndex}: ${Utils.escapeMd(
             preview
           )}](#chat-${exportChatIndex})\n`;
+          const userMarkdown = ChatExporter.formatUserMessageContent(msg);
           content +=
             `## chat-${exportChatIndex}\n\n> ` +
-            msg.contentText.replace(/\n/g, "\n> ") +
+            userMarkdown.replace(/\n/g, "\n> ") +
             "\n\n";
         } else {
           let markdownContent;
@@ -1502,7 +1606,10 @@
                     .trim();
             }
 
-            const cmContent = node.querySelector(".cm-content");
+            const cmContent =
+              node.matches && node.matches(".cm-content")
+                ? node
+                : node.querySelector(".cm-content");
             if (cmContent) {
               // .innerText is better than .textContent here because it
               // respects the line breaks generated by the editor's divs/blocks
@@ -1928,6 +2035,7 @@
     _outlineIsCollapsed: false, // State for the outline collapse
     _lastProcessedChatUrl: null, // Track the last processed chat URL for Gemini
     _initialListenersAttached: false, // Track if the URL change handlers are initialized
+    _chatGPTScrollListenerAttached: false,
     autoScrollEnabled: GM_getValue("gm_auto_scroll_enabled", true),
 
     /**
@@ -2554,6 +2662,64 @@
       }
     },
 
+    findChatGPTScrollContainer() {
+      const candidates = [];
+      let currentNode = document.querySelector("main") || document.body;
+      while (currentNode) {
+        candidates.push(currentNode, ...currentNode.children);
+        currentNode = currentNode.parentElement;
+      }
+
+      return (
+        candidates.filter(
+          (element) => {
+            const overflowY = window.getComputedStyle
+              ? window.getComputedStyle(element).overflowY
+              : "";
+            return (
+              element.scrollHeight &&
+              element.clientHeight &&
+              element.scrollHeight > element.clientHeight + 1000 &&
+              /auto|scroll/.test(overflowY)
+            );
+          }
+        )
+        .sort(
+          (a, b) =>
+            b.scrollHeight -
+            b.clientHeight -
+            (a.scrollHeight - a.clientHeight)
+        )[0] ||
+        document.querySelector("main") ||
+        document.documentElement
+      );
+    },
+
+    attachChatGPTScrollListener() {
+      if (
+        CURRENT_PLATFORM !== CHATGPT ||
+        UIManager._chatGPTScrollListenerAttached
+      ) {
+        return;
+      }
+
+      const scrollableElement = UIManager.findChatGPTScrollContainer();
+      if (!scrollableElement) return;
+
+      let scrollTimeout = null;
+      scrollableElement.addEventListener(
+        "scroll",
+        () => {
+          clearTimeout(scrollTimeout);
+          scrollTimeout = setTimeout(() => {
+            UIManager.addOutlineControls();
+          }, 200);
+        },
+        { passive: true }
+      );
+      UIManager._chatGPTScrollListenerAttached = true;
+    },
+
     /**
      * Attempts to auto-scroll the Gemini chat to the top to load all messages.
      * This function uses an iterative approach to handle dynamic loading.
@@ -2780,6 +2946,7 @@
         // Always ensure outline controls are present and regenerate content on changes
         // This covers new messages, and for Gemini, scrolling up to load more content.
         UIManager.addOutlineControls();
+        UIManager.attachChatGPTScrollListener();
       });
 
       // Selector that includes chat messages and where new messages are added
@@ -2933,6 +3100,7 @@
           // console.log("Timeout elapsed. Adding export and outline controls.");
           UIManager.addExportControls();
           UIManager.addOutlineControls(); // Add outline after buttons
+          UIManager.attachChatGPTScrollListener();
           // New: Initiate auto-scroll for Gemini after controls are set up
           // console.log("Checking if current host is a Gemini hostname...");
           if (CURRENT_PLATFORM === GEMINI) {
@@ -2949,6 +3117,7 @@
             // console.log("DOMContentLoaded event fired. Adding export and outline controls after timeout.");
             UIManager.addExportControls();
             UIManager.addOutlineControls(); // Add outline after buttons
+            UIManager.attachChatGPTScrollListener();
             // New: Initiate auto-scroll for Gemini after controls are set up
             // console.log("Checking if current host is a Gemini hostname (from DOMContentLoaded).");
             if (CURRENT_PLATFORM === GEMINI) {
@@ -2969,5 +3138,11 @@
   };
 
   // --- Script Initialization ---
-  UIManager.init();
+  if (window.__AI_CHAT_EXPORTER_TEST__) {
+    window.__AI_CHAT_EXPORTER_TEST__.ChatExporter = ChatExporter;
+    window.__AI_CHAT_EXPORTER_TEST__.UIManager = UIManager;
+    window.__AI_CHAT_EXPORTER_TEST__.Utils = Utils;
+  } else {
+    UIManager.init();
+  }
 })();
