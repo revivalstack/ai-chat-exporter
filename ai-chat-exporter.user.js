@@ -337,6 +337,7 @@
   const GEMINI = "gemini";
   const GEMINI_HOSTNAMES = ["gemini.google.com"];
   const GEMINI_TITLE_REPLACE_TEXT = "Gemini - ";
+  const GEMINI_TITLE_SUFFIX_REGEX = /\s-\s(?:Google\s+Gemini|Gemini)$/i;
   const GEMINI_MESSAGE_ITEM_SELECTOR = "user-query, model-response";
   const GEMINI_SIDEBAR_ACTIVE_CHAT_SELECTOR =
     'a[data-test-id="conversation"].selected .conversation-title';
@@ -921,6 +922,10 @@
       if (title.startsWith(GEMINI_TITLE_REPLACE_TEXT)) {
         title = title.replace(GEMINI_TITLE_REPLACE_TEXT, "").trim();
       }
+
+      // Remove trailing provider suffixes that appear in browser titles,
+      // e.g. "My chat - Google Gemini" or "My chat - Gemini".
+      title = title.replace(GEMINI_TITLE_SUFFIX_REGEX, "").trim();
 
       // 4. Specifically strip the configurable chat title prefix
       // This ensures the filename doesn't include the status mark/prefix
